@@ -84,11 +84,16 @@ At the start, `run` prints the run directory, `<runsDir>/<timestamp>/`. It conta
 - `summary.txt`: the counts `Passed`, `Failed`, `Skipped`, `Interrupted` and `Known failures`, the `Skipped in background mode` and `Interrupted by user input` sections, the failing step and reason for each failed scenario, and the sections listed for review. Read this first.
 - `results.json`: the same content in machine-readable form (status, failedStep, reason, check, notes and waivers per scenario).
 - `<scenario name>/steps.log`: the per-step log. `NN-<step>.png`: full-window screenshots (`--shots=key` keeps only the first and last steps, explicit `shot` calls and failing steps; `all` keeps every step; `none` keeps only explicit `shot` calls). `NN-<step>.ax.txt`: a text listing of the UI at each step (role, identifier, text, frame, occlusion state). `NN-<step>-<identifier>.png`: element screenshots and crops of the elements a check flagged. On failure, `ax-<step>.txt`: the whole accessibility tree. `events.jsonl`: app and stage events. `app-stderr.log`.
-- To look at a screenshot, open the png with Read. To judge a UI problem, read the matching `.ax.txt` first, then look at the image.
+- To look at a screenshot, open the png with Read. To judge a UI problem, read the matching `.ax.txt` first, and open a screenshot only when the text cannot answer. Prefer an element crop to a full-window image: the step's `NN-<step>-<identifier>.png` when the run has one, otherwise add `t.shot(id:)` to the scenario and run it again, or use `wispstage shot --id` while the app is running.
 
 Generic checks (run after every action step):
 - Fail the step: process-alive, responsive, placeholder (unreplaced `%@`, `{...}`, localization keys), plural ("1 Minutes" in an English UI), overlap (overlapping text), bounds (outside the window), truncation, beep (a key press nobody handled); in background mode also key-focus (the app's window became key) and foreground (the app became frontmost).
 - Listed for review in summary.txt (do not fail the step): missing-id (visible but without an identifier), hit-target (smaller than 20x20 pt), alignment, contrast, occlusion. These sections are an improvement list, not scenario failures.
+
+## Keeping your own cost down
+
+- When you run as a subagent, keep each command under about 4 minutes. A subagent's prompt cache lasts 5 minutes, and a command that runs longer makes the next turn rewrite it. Split a long suite into filtered runs (`wispstage run <prefix>`) that each fit; time one scenario to size them, and run `wispstage list` once beforehand so the first build is not part of a timed run.
+- A yes/no question about one element crop ("is the label cut off?") can go to an agent on a smaller model, if you can start one. Look at each crop it reports as a problem yourself before you act on it.
 
 ## Baseline screenshots
 
