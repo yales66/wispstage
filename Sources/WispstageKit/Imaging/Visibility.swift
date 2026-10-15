@@ -2,7 +2,7 @@ import CoreGraphics
 import Foundation
 import ScreenCaptureKit
 
-/// Visibility self-check before a hidden-mode run. Whether the run continues is decided by `wallpaperCovers` from window metadata; the compositing comparison below is only logged for reference.
+/// Visibility self-check before a hidden-mode run. Whether the run continues is decided by `coverReason` from window metadata; the compositing comparison below is only logged for reference.
 /// What the compositing comparison is for (the risk built into pushing windows beneath the wallpaper: if the wallpaper window is not opaque or its layer changes, it no longer hides them, so a self-check is needed):
 /// ScreenCaptureKit composites only "the desktop stack" (the window server backdrop, wallpaper, Stage Manager and other windows below layer -2147483600, excluding Finder desktop icons)
 /// within the frame of the window under test, once with that window and once without, and compares the pixels.
@@ -16,6 +16,10 @@ public enum Visibility {
         var frame: CGRect
         var alpha: Double = 1
         var name: String? = nil
+        /// Owner process id (kCGWindowOwnerPID); nil when unknown.
+        var pid: Int32? = nil
+        /// kCGWindowIsOnscreen; windows listed with `.optionOnScreenOnly` are all on screen.
+        var onScreen: Bool = true
 
         /// Wallpaper window: owner `Wallpaper` (seen on macOS 27, 2026-10-14), or owner `WindowManager` with window name `Wallpaper`
         /// (seen on macOS 27.2 after a restart, 2026-10-15, at layer -2147483624).
@@ -39,6 +43,18 @@ public enum Visibility {
         return "the wallpaper covers only \(Int(covered))/\(Int(need)) square points of the window under test on screen"
     }
 
+    /// Decides from window metadata whether the window under test (owned by `pid`) is hidden: covered by opaque wallpaper (`wallpaperCovers`), or, on each display it is on,
+    /// contained in one opaque, on-screen, normal-layer (layer 0) window of another process. The second case is another app's full-screen Space, which has no wallpaper window:
+    /// that app's window then hides the window under test. Returns nil when hidden, otherwise the wallpaper reason.
+    /// Rough part: any window meeting the rule counts, full-screen or not; it is consulted only when the wallpaper does not cover, which in a normal Space it does.
+    static func coverReason(target: CGRect, layer: Int, pid: Int32, windows: [StackWindow], displays: [CGRect]) -> String? {
+        guard let why = wallpaperCovers(target: target, layer: layer, windows: windows, displays: displays) else { return nil }
+        let covers = windows.filter { $0.pid != nil && $0.pid != pid && $0.layer == 0 && $0.alpha >= 1 && $0.onScreen }
+        let parts = displays.map { target.intersection($0) }.filter { area($0) > 0 }
+        let hidden = !parts.isEmpty && parts.allSatisfy { part in covers.contains { $0.frame.contains(part) } }
+        return hidden ? nil : why
+    }
+
     private static func area(_ r: CGRect) -> CGFloat { r.isNull ? 0 : r.width * r.height }
 
     /// Metadata of the windows on screen right now (CGWindowListCopyWindowInfo; wallpapers of other Spaces are not included), global top-left origin.
@@ -48,7 +64,8 @@ public enum Visibility {
             guard let id = w[kCGWindowNumber as String] as? Int, let b = w[kCGWindowBounds as String] as? [String: Any],
                   let frame = CGRect(dictionaryRepresentation: b as CFDictionary) else { return nil }
             return StackWindow(id: id, layer: (w[kCGWindowLayer as String] as? Int) ?? 0, owner: w[kCGWindowOwnerName as String] as? String,
-                               frame: frame, alpha: (w[kCGWindowAlpha as String] as? Double) ?? 1, name: w[kCGWindowName as String] as? String)
+                               frame: frame, alpha: (w[kCGWindowAlpha as String] as? Double) ?? 1, name: w[kCGWindowName as String] as? String,
+                               pid: w[kCGWindowOwnerPID as String] as? Int32, onScreen: (w[kCGWindowIsOnscreen as String] as? Bool) ?? true)
         }
     }
 
@@ -146,10 +163,10 @@ public enum VisibilityGate {
             guard let target else { throw E2EFailure("no window of the app under test found beneath the wallpaper") }
             // Only window metadata decides: the two compositing images are captured one after the other, and changes on the user's screen or from concurrent instances in between can differ by hundreds to thousands of pixels,
             // which once wrongly stopped a whole run; the comparison result stays in the log for reference and does not decide.
-            let why = Visibility.wallpaperCovers(target: target.frame, layer: target.layer,
-                                                 windows: Visibility.currentWindows(), displays: Visibility.displayFrames())
+            let why = Visibility.coverReason(target: target.frame, layer: target.layer, pid: pid,
+                                             windows: Visibility.currentWindows(), displays: Visibility.displayFrames())
             let diff = (try? Visibility.differingPixels(windowID: target.id)).map(String.init) ?? "unavailable"
-            log("  visibility self-check: window under test #\(target.id) layer \(target.layer), \(why ?? "fully beneath an opaque wallpaper"); compositing pixel difference \(diff) (reference only)")
+            log("  visibility self-check: window under test #\(target.id) layer \(target.layer), \(why ?? "fully beneath an opaque wallpaper or another app's opaque window"); compositing pixel difference \(diff) (reference only)")
             if let why { throw E2EFailure(why) }
         } catch {
             failed = true
