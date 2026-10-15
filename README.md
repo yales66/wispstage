@@ -12,7 +12,7 @@ for a fraction of the tokens a screenshot-driven agent spends. Your cursor and k
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-lightgrey.svg)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138.svg)
 
-[Quick start](#quick-start) · [What your agent reads](#what-your-agent-reads) · [What it checks](#what-it-checks) · [How it works](#how-it-works) · [Measuring animations](#measuring-animations) · [中文说明](README.zh-CN.md)
+[Quick start](#quick-start) · [Try the example](#try-it-on-the-example-app) · [What your agent reads](#what-your-agent-reads) · [What it checks](#what-it-checks) · [How it works](#how-it-works) · [Measuring animations](#measuring-animations) · [中文说明](README.zh-CN.md)
 
 </div>
 
@@ -66,6 +66,23 @@ Accept this run's screenshots as the new baselines.
 ```
 
 Before the test host exists, a run has to use foreground mode, which takes over your screen, keyboard and cursor; the skill tells the agent to ask you first. Once the test host is in, every run happens in the background.
+
+### Try it on the example app
+
+`Examples/Wispboard` is a small SwiftUI kanban app that comes with a test host and ten scenarios, so you can watch a run before Wispstage touches your own project. Grant the two permissions above to the terminal you run these commands from, then:
+
+```bash
+git clone https://github.com/yales66/wispstage
+cd wispstage/Examples/Wispboard
+../../bin/wispstage run                          # background mode: all ten scenarios pass
+WISPBOARD_PLANT_BUGS=1 ../../bin/wispstage run   # the same suite against the app with six planted bugs
+```
+
+Keep the clone directory named `wispstage`, since the example depends on it by path. The first run builds the command and the app. Each run writes `build/e2e-runs/<timestamp>/summary.txt`. With the planted bugs, five scenarios fail on truncation, an unfilled placeholder, overlapping text, an unhandled key and a hang. No scenario asserts on these five; the checks Wispstage runs after every step catch them. The sixth bug swaps the inspector's 0.3 s `.snappy` spring for a slower, bouncier one: the `inspector.motion` scenario passes, and its motion report, `inspector.motion/motion-inspector-open.txt` in the same run directory, lists the measured values against the `.snappy` spring the scenario expects and marks the ones out of tolerance. [`PlantedBugs.swift`](Examples/Wispboard/Sources/WispboardKit/PlantedBugs.swift) lists each bug and what catches it. With the plugin installed (step 1), you can open Claude Code in the clone and ask instead:
+
+```text
+Run the Wispboard suite with WISPBOARD_PLANT_BUGS=1 and tell me what broke.
+```
 
 ## What your agent reads
 

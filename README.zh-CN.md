@@ -12,7 +12,7 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-lightgrey.svg)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138.svg)
 
-[快速上手](#快速上手) · [智能体读什么](#智能体读什么) · [检查项](#检查项) · [工作原理](#工作原理) · [测量动效](#测量动效) · [English](README.md)
+[快速上手](#快速上手) · [试试示例](#先在示例应用上试试) · [智能体读什么](#智能体读什么) · [检查项](#检查项) · [工作原理](#工作原理) · [测量动效](#测量动效) · [English](README.md)
 
 </div>
 
@@ -66,6 +66,23 @@ claude plugin install wispstage@wispstage
 ```
 
 测试宿主就位之前，运行只能用前台模式，会占用你的屏幕、键盘和光标；技能会让智能体先征得你的同意。测试宿主就位之后，每次运行都在后台进行。
+
+### 先在示例应用上试试
+
+`Examples/Wispboard` 是一个小型 SwiftUI 看板应用，自带测试宿主和十个场景，你可以在 Wispstage 碰你自己的项目之前先看一次运行。把上面两项权限授予你运行这些命令的终端，然后运行：
+
+```bash
+git clone https://github.com/yales66/wispstage
+cd wispstage/Examples/Wispboard
+../../bin/wispstage run                          # 后台模式：十个场景全部通过
+WISPBOARD_PLANT_BUGS=1 ../../bin/wispstage run   # 同一套场景，跑在埋了六个 bug 的应用上
+```
+
+克隆目录须保持名为 `wispstage`，因为示例按路径依赖它。第一次运行会先构建命令和应用。每次运行都会写出 `build/e2e-runs/<时间戳>/summary.txt`。埋了 bug 时，五个场景分别因文字截断、未填充的占位符、文字重叠、无人处理的按键和卡死而失败。没有任何场景为这五个 bug 写断言，抓到它们的是 Wispstage 每一步之后自动运行的检查。第六个 bug 把检查器的 0.3 s `.snappy` 弹簧换成了更慢、带回弹的弹簧：`inspector.motion` 场景本身通过，同一运行目录下的动效报告 `inspector.motion/motion-inspector-open.txt` 逐项列出测量值与场景期望的 `.snappy` 弹簧的差，超出容差的会标出来。[`PlantedBugs.swift`](Examples/Wispboard/Sources/WispboardKit/PlantedBugs.swift) 列出了每个 bug 和抓到它的手段。装好插件（第 1 步）后，也可以在克隆下来的目录里打开 Claude Code，直接这样说：
+
+```text
+用 WISPBOARD_PLANT_BUGS=1 跑一遍 Wispboard 的场景，告诉我哪里坏了。
+```
 
 ## 智能体读什么
 
