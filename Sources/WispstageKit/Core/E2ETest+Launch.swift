@@ -64,7 +64,7 @@ extension E2ETest {
             !p.isRunning || spec.ready.satisfied(lines: p.lines, hasWindow: { !(self.axApp?.windows.isEmpty ?? true) })
         }
         guard p.isRunning else { throw E2EFailure("App exited after launch (exit code \(p.process.terminationStatus))", check: .processAlive) }
-        guard ok else { throw E2EFailure("App not ready after \(spec.readyTimeout)s") }
+        guard ok else { throw E2EFailure("App not ready after \(spec.readyTimeout)s" + (WindowList.offSpaceNote(WindowList.all(pid: p.pid)) ?? "")) }
         do { try p.connectStage(path: stageSocket) } catch {
             guard !runMode.requiresStage else {
                 throw E2EFailure(Self.stageMissingMessage(error))

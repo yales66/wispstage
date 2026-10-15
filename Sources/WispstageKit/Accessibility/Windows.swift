@@ -46,6 +46,34 @@ public enum WindowList {
         }
     }
 
+    /// One window of a process as the window server lists it on every Space (`.optionAll`), on screen or not.
+    struct ListedWindow {
+        var frame: CGRect
+        var onScreen: Bool
+        var alpha: Double = 1
+    }
+
+    /// A process's windows on every Space, including those not on screen.
+    static func all(pid: pid_t) -> [ListedWindow] {
+        guard let info = CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID) as? [[String: Any]] else { return [] }
+        return info.compactMap { w in
+            guard (w[kCGWindowOwnerPID as String] as? Int32) == pid,
+                  let b = w[kCGWindowBounds as String] as? [String: Any],
+                  let frame = CGRect(dictionaryRepresentation: b as CFDictionary)
+            else { return nil }
+            return ListedWindow(frame: frame, onScreen: (w[kCGWindowIsOnscreen as String] as? Bool) ?? false,
+                                alpha: (w[kCGWindowAlpha as String] as? Double) ?? 1)
+        }
+    }
+
+    /// Text to append to a timed-out window wait when the app has a window, but none of its windows is on screen; nil otherwise.
+    /// Uses the same size and alpha filter as `onScreen`. Rough part: a window the app ordered out also lists as off screen, so the note says what was seen and gives the full-screen Space as an example only.
+    static func offSpaceNote(_ windows: [ListedWindow]) -> String? {
+        let real = windows.filter { $0.alpha > 0 && $0.frame.width > 1 && $0.frame.height > 1 }
+        guard !real.isEmpty, !real.contains(where: \.onScreen) else { return nil }
+        return "; the app's window exists but is not on the current Space (for example, a full-screen app's Space is in front)"
+    }
+
     /// Pairs CGWindows with accessibility windows by frame, then assigns kinds. `known` holds window numbers reported by the app through events or registered by your project; the rest are guessed with `classifier`.
     static func resolve(pid: pid_t, app: AXNode, known: [Int: WindowKind], classifier: any WindowClassifier) -> [AppWindow] {
         let axWindows = app.windows.map { ($0, $0.frame) }
