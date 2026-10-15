@@ -2,3 +2,6 @@
 .swiftpm/
 *.xcodeproj/
 DerivedData/
+
+# Output of the example apps' end-to-end runs (Examples/<app>/build/e2e-runs, build/e2e-bundle)
+Examples/*/build/
