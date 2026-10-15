@@ -29,7 +29,7 @@ The agent adds two things to your project: a scenario package, a small Swift pac
 
 ![Wispstage architecture: the driver process runs your scenarios and checks; it reaches the test host through Accessibility, key events, a Unix socket to the stage library and an optional command channel, and captures the app's windows for the checks](docs/architecture.svg)
 
-<p align="center"><sub>A background run: one <code>wispstage run</code> starts the driver, which reaches the test host through Accessibility, key events, a Unix socket to the stage library and an optional standard input/output channel, and checks every window of the app after each step.</sub></p>
+<p align="center"><sub>Wispstage architecture</sub></p>
 
 ## Quick start
 
