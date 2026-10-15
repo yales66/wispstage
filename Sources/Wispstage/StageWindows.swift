@@ -87,7 +87,7 @@ enum StageWindows {
 
     fileprivate static var pins: Bool { Wispstage.isActive }
 
-    /// Pins to the minimum level, ignores the mouse, joins all Spaces; emits `stage.windowPinned` the first time each window is pinned.
+    /// Pins to the minimum level, ignores the mouse, joins all Spaces (other apps' full-screen Spaces included); emits `stage.windowPinned` the first time each window is pinned.
     static func pin(_ w: NSWindow) {
         guard installed, pins, !isMenuBarWindow(w) else { return }
         if w.level != Wispstage.level {
@@ -96,10 +96,12 @@ enum StageWindows {
             w.wispstage_setLevel(Wispstage.level)
         }
         if !w.ignoresMouseEvents { w.ignoresMouseEvents = true }
-        if !w.collectionBehavior.contains(.canJoinAllSpaces) {
+        // canJoinAllSpaces alone keeps the window out of another app's full-screen Space: while that Space is in front the window is off screen
+        // and Accessibility lists no windows for the app. fullScreenAuxiliary lets it join that Space too.
+        if !w.collectionBehavior.isSuperset(of: [.canJoinAllSpaces, .fullScreenAuxiliary]) {
             // Setting canJoinAllSpaces and moveToActiveSpace together throws an exception
             w.collectionBehavior.remove(.moveToActiveSpace)
-            w.collectionBehavior.insert(.canJoinAllSpaces)
+            w.collectionBehavior.insert([.canJoinAllSpaces, .fullScreenAuxiliary])
         }
         // A window not yet on screen has no window number; report it once it has one
         if w.windowNumber > 0, seen.insert(ObjectIdentifier(w)).inserted {

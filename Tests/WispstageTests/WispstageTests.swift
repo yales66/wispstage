@@ -133,6 +133,19 @@ final class Target: NSObject {
         XCTAssert(Wispstage.requestedLevel(of: plain) == .normal)
     }
 
+    /// A window with only canJoinAllSpaces is off screen while another app's full-screen Space is in front; fullScreenAuxiliary lets it join that Space too.
+    func test_pinnedWindowJoinsFullScreenSpacesAndPinRestoresAfterReset() {
+        let w = Fixture.window()
+        w.orderFront(nil)
+        defer { w.orderOut(nil) }
+        XCTAssert(w.collectionBehavior.isSuperset(of: [.canJoinAllSpaces, .fullScreenAuxiliary]))
+        // SwiftUI may later replace collectionBehavior; the next pin (the pin timer) must bring both back
+        w.collectionBehavior = .fullScreenPrimary
+        StageWindows.pin(w)
+        XCTAssert(w.collectionBehavior.isSuperset(of: [.canJoinAllSpaces, .fullScreenAuxiliary]))
+        XCTAssert(!w.collectionBehavior.contains(.moveToActiveSpace))
+    }
+
     // MARK: Point 2: intercepting key and activation
 
     func test_makeKeyIsRecordedAsKeyTargetInsteadOfTakingKeyboard() {
