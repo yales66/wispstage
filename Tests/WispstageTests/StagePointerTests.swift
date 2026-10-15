@@ -49,6 +49,18 @@ import WispstageClient
         #expect(StagePointer.windowPoint(.zero, contentFrame: CGRect(x: 10, y: 20, width: 300, height: 380)) == CGPoint(x: 10, y: 400))
     }
 
+    // A 120×80 window at the bottom-left of a 768-point-high primary screen: the window server reports it at y = 768 − 80 = 688 (top-left origin)
+    @Test(arguments: [
+        ("notListedYet", nil, false),
+        ("placed", CGRect(x: 0, y: 688, width: 120, height: 80), true),
+        ("withinHalfPoint", CGRect(x: 0.4, y: 688.4, width: 120, height: 80), true),
+        ("atScreenTopLeft", CGRect(x: 0, y: 0, width: 120, height: 80), false),
+        ("otherSize", CGRect(x: 0, y: 688, width: 100, height: 80), false),
+    ] as [(String, CGRect?, Bool)])
+    func windowIsPlacedWhenServerBoundsMatchItsFrame(_ id: String, _ server: CGRect?, _ placed: Bool) {
+        #expect(StagePointerInput.isPlaced(frame: NSRect(x: 0, y: 0, width: 120, height: 80), serverBounds: server, primaryHeight: 768) == placed)
+    }
+
     @Test func statusDecodesFirstResponder() {
         let s = StageStatus(reply: ["ok": true, "keyTarget": 5, "keyWindow": 0, "active": false,
                                     "firstResponder": StageStatus.responderFields(.init(id: "q.answer", role: "AXTextField",
