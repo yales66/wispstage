@@ -1,6 +1,6 @@
 {
   "name": "wispstage",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "End-to-end testing for macOS apps: drives the app under test on a real Mac through Accessibility and synthesized keyboard and mouse events, in foreground or background mode, with generic checks, screenshots and baseline comparison on every step.",
   "author": {
     "name": "Yaleson"
