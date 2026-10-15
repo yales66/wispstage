@@ -55,6 +55,17 @@ struct RunModeTests {
         // An app at adoption level 0 does not link the stage library and can only run in foreground: it runs without the connection, and beeps have no source and are not checked.
         #expect(mode.requiresStage == fatal)
     }
+
+    @Test func backgroundRunWithoutStageNamesBothWaysOut() {
+        struct Refused: Error, CustomStringConvertible { var description: String { "connection refused" } }
+        let m = E2ETest.stageMissingMessage(Refused())
+        #expect(m.contains("connection refused"))
+        #expect(m.contains("background mode"))
+        #expect(m.contains("does not link the stage library"))
+        #expect(m.contains("--mode foreground"))
+        #expect(m.contains("Wispstage.install()"))
+        #expect(m.contains("adoption level 2"))
+    }
 }
 
 struct ChecksByModeTests {
