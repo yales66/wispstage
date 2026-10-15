@@ -27,6 +27,10 @@ The agent adds two things to your project: a scenario package, a small Swift pac
 - Every step is checked, with no assertions to write. Crashes, hangs, truncated or overlapping text, text outside its window, unfilled placeholders and beeps from unhandled keys fail the step on their own. Low contrast, tiny click targets and missing identifiers are listed for review.
 - Your release build stays clean. Scenarios live in their own package and the stage library links only into the test host, so your release app links nothing from Wispstage.
 
+![Wispstage architecture: the driver process runs your scenarios and checks; it reaches the test host through Accessibility, key events, a Unix socket to the stage library and an optional command channel, and captures the app's windows for the checks](docs/architecture.svg)
+
+<sub>[Editable source](docs/architecture.drawio)</sub>
+
 ## Quick start
 
 ### 1. Install the plugin
@@ -201,11 +205,7 @@ Only the beep check and the background-mode focus checks need a test host; every
 
 ## How it works
 
-![Wispstage architecture: the driver process runs your scenarios and checks; it reaches the test host through Accessibility, key events, a Unix socket to the stage library and an optional command channel, and captures the app's windows for the checks](docs/architecture.svg)
-
-<sub>[Editable source](docs/architecture.drawio)</sub>
-
-A background-mode run goes like this:
+A background-mode run, as drawn in the [architecture diagram](#wispstage) at the top, goes like this:
 
 1. `wispstage run` finds `.wispstage.json` and starts the scenario package with `swift run`. That process is the driver: the scenarios compiled together with WispstageKit.
 2. For each scenario the runner takes a lock, then runs the scenario. Its launch step starts the test host with `WISPSTAGE_STAGE=1`, and the stage library inside the test host keeps the windows beneath the wallpaper and stops the app from activating or taking key focus.

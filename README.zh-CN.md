@@ -27,6 +27,10 @@ Wispstage 是一个 Swift 包，也是一个 Claude Code 插件。你请智能�
 - 每一步都会检查，不用写断言。崩溃、卡死、文字被截断或互相压叠、文字越出窗口、占位符未替换，以及无人处理的按键发出的提示音，都会直接判该步失败。对比度过低、点击区域过小和缺少无障碍标识则列出来供复查。
 - 正式构建保持干净。场景放在自己的包里，舞台库只链接进测试宿主，所以正式发布的应用不链接任何 Wispstage 代码。
 
+![Wispstage 架构：驱动进程运行你的场景和检查；它通过辅助功能、按键事件、连到舞台库的 Unix 套接字和可选的命令通道触达测试宿主，并截取应用的窗口供检查使用](docs/architecture.zh-CN.svg)
+
+<sub>[可编辑的源文件](docs/architecture.zh-CN.drawio)</sub>
+
 ## 快速上手
 
 ### 1. 安装插件
@@ -201,11 +205,7 @@ try t.waitEvent("item.saved", where: { $0["id"] as? Int == 3 })
 
 ## 工作原理
 
-![Wispstage 架构：驱动进程运行你的场景和检查；它通过辅助功能、按键事件、连到舞台库的 Unix 套接字和可选的命令通道触达测试宿主，并截取应用的窗口供检查使用](docs/architecture.zh-CN.svg)
-
-<sub>[可编辑的源文件](docs/architecture.zh-CN.drawio)</sub>
-
-一次后台模式的运行过程如下：
+一次后台模式的运行过程如下，对应文首的[架构图](#wispstage)：
 
 1. `wispstage run` 找到 `.wispstage.json`，用 `swift run` 启动场景包。这个进程就是驱动进程（driver）：场景与 WispstageKit 编译在一起。
 2. 对每个场景，执行器（runner）先取锁，再运行场景。场景的启动步骤以 `WISPSTAGE_STAGE=1` 启动测试宿主，测试宿主内的舞台库把窗口压在墙纸之下，并阻止应用激活或获得键盘焦点。
