@@ -29,7 +29,7 @@ The agent adds two things to your project: a scenario package, a small Swift pac
 
 ![Wispstage architecture: the driver process runs your scenarios and checks; it reaches the test host through Accessibility, key events, a Unix socket to the stage library and an optional command channel, and captures the app's windows for the checks](docs/architecture.svg)
 
-<sub>[Editable source](docs/architecture.drawio)</sub>
+<p align="center"><sub>A background run: one <code>wispstage run</code> starts the driver, which reaches the test host through Accessibility, key events, a Unix socket to the stage library and an optional standard input/output channel, and checks every window of the app after each step.</sub></p>
 
 ## Quick start
 
@@ -446,7 +446,7 @@ The default mode is background, which needs the test host; until you add one, pa
 swift test
 ```
 
-Tests that need a graphical session or Screen Recording skip themselves on a machine without one. `.github/workflows/ci.yml` builds and tests on a GitHub macOS runner. The skill lives in `skills/wispstage/` and the plugin manifest in `.claude-plugin/`.
+Tests that need a graphical session or Screen Recording skip themselves on a machine without one. The architecture diagram is drawn in `docs/architecture.drawio` (`docs/architecture.zh-CN.drawio` for the Chinese one). `.github/workflows/ci.yml` builds and tests on a GitHub macOS runner. The skill lives in `skills/wispstage/` and the plugin manifest in `.claude-plugin/`.
 
 ## License
 
