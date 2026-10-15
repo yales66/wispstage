@@ -1,0 +1,52 @@
+/* Columns */
+"Today" = "Heute";
+"Next" = "Als Nächstes";
+"Done" = "Erledigt";
+"No cards" = "Keine Karten";
+
+/* Tags */
+"Home" = "Zuhause";
+"Health" = "Gesundheit";
+"Work" = "Arbeit";
+"Errands" = "Besorgungen";
+
+/* Sample cards */
+"Water the ferns" = "Farne gießen";
+"Book a dentist appointment" = "Zahnarzttermin vereinbaren";
+"Reply to the landlord" = "Dem Vermieter antworten";
+"Sketch the onboarding flow" = "Onboarding-Ablauf skizzieren";
+"Renew library books" = "Bibliotheksbücher verlängern";
+"Plan the weekend hike" = "Wochenendwanderung planen";
+"Fix the squeaky door" = "Quietschende Tür reparieren";
+"Send the birthday card" = "Geburtstagskarte abschicken";
+"Untitled" = "Ohne Titel";
+
+/* Cards */
+"Due" = "Fällig";
+"Delete Card" = "Karte löschen";
+
+/* Toolbar */
+"New Card" = "Neue Karte";
+"Sync" = "Synchronisieren";
+"Show Inspector" = "Informationen einblenden";
+"Not synced yet" = "Noch nicht synchronisiert";
+"Syncing…" = "Wird synchronisiert …";
+"Synced just now" = "Gerade synchronisiert";
+
+/* Inspector */
+"Card" = "Karte";
+"Close" = "Schließen";
+"Title" = "Titel";
+"Column" = "Spalte";
+"No card selected" = "Keine Karte ausgewählt";
+"Select a card to see its details." = "Wähle eine Karte aus, um ihre Details zu sehen.";
+
+/* Settings */
+"Settings" = "Einstellungen";
+"Board" = "Board";
+"Notifications" = "Mitteilungen";
+"Show completed cards" = "Erledigte Karten anzeigen";
+"Remind me when a card is due" = "Erinnern, wenn eine Karte fällig ist";
+"Card density" = "Kartendichte";
+"Comfortable" = "Großzügig";
+"Compact" = "Kompakt";

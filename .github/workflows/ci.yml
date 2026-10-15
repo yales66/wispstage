@@ -35,5 +35,10 @@ jobs:
       - name: Build
         run: swift build --build-tests
 
+      - name: Build example
+        run: |
+          swift build --package-path Examples/Wispboard
+          swift build --package-path Examples/Wispboard/E2E
+
       - name: Test
         run: swift test --skip-build
