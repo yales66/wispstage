@@ -12,6 +12,8 @@ import WispstageClient
 ///   `acceptsFirstMouse` returns true for the chain of views under the point (the method is replaced per class, process-wide; only a test host with the stage on gets here).
 /// - The window clicked or dragged in is recorded as the keyboard target: in real use, the window you click becomes key.
 /// During hover the cursor doesn't move, so the system sends no tracking-area enter or exit; this sends them for the hover point instead.
+/// SwiftUI's NSHostingView also looks at the system cursor, not only the event: while `+[NSCursor _isHidden]` is true (after the user types, until the
+/// mouse moves) it ignores enter and move events and onHover doesn't fire, so the cursor reads as visible while each enter, move and exit is sent.
 @MainActor
 enum StagePointerInput {
     /// SwiftUI drag gestures are recognized only over several steps about one frame apart (about 16 ms).
@@ -215,11 +217,11 @@ enum StagePointerInput {
                 inside.insert(id)
                 if hovered[id] == nil, area.options.contains(.mouseEnteredAndExited),
                    let e = enterExit(.mouseEntered, loc, in: w, area: area) {
-                    owner.mouseEntered(with: e)
+                    withCursorShown { owner.mouseEntered(with: e) }
                 }
                 hovered[id] = (area, owner, w)
                 if area.options.contains(.mouseMoved), let e = mouse(.mouseMoved, loc, in: w, pressure: 0) {
-                    owner.mouseMoved(with: e)
+                    withCursorShown { owner.mouseMoved(with: e) }
                 }
             }
             for sub in v.subviews where !sub.isHidden { visit(sub) }
@@ -227,11 +229,35 @@ enum StagePointerInput {
         visit(root)
         for (id, entry) in hovered where !inside.contains(id) {
             if entry.area.options.contains(.mouseEnteredAndExited), let e = enterExit(.mouseExited, loc, in: entry.window, area: entry.area) {
-                entry.owner.mouseExited(with: e)
+                withCursorShown { entry.owner.mouseExited(with: e) }
             }
             hovered[id] = nil
         }
     }
+
+    /// A synthesized hover stands for a pointer that just moved, and moving the real pointer unhides the cursor, so the app sees a visible cursor
+    /// during the dispatch: `+[NSCursor _isHidden]` (private) answers false while `body` runs, then gets back whatever implementation it had before,
+    /// so an override someone else installed (a test double) stays in place. When the method can't be found, `body` runs unchanged and this is
+    /// reported once on standard error.
+    private static func withCursorShown(_ body: () -> Void) {
+        guard let m = cursorHiddenMethod else { return body() }
+        let previous = method_setImplementation(m, cursorShownIMP)
+        defer { method_setImplementation(m, previous) }
+        body()
+    }
+
+    private static let cursorHiddenMethod: Method? = {
+        let m = class_getClassMethod(NSCursor.self, NSSelectorFromString("_isHidden"))
+        if m == nil {
+            FileHandle.standardError.write(Data("Wispstage: +[NSCursor _isHidden] not found, SwiftUI hover may not fire while the system cursor is hidden\n".utf8))
+        }
+        return m
+    }()
+
+    private static let cursorShownIMP: IMP = {
+        let block: @convention(block) (AnyObject) -> Bool = { _ in false }
+        return imp_implementationWithBlock(block)
+    }()
 
     /// Enter and exit events must carry the tracking area (`trackingArea` non-nil): SwiftUI's NSHostingView ignores enter events without one, and
     /// onHover doesn't fire (measured 2026-10-15, macOS 27.2). trackingNumber is passed the tracking area object's address, from which AppKit resolves
