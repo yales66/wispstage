@@ -18,7 +18,23 @@ struct ProjectInitTests {
     private func demo(dir: String = "E2E", executable: String? = ".build/debug/Demo", kit: String = "/kit/wispstage") throws -> ProjectInit {
         var args = ["--app-name", "Demo", "--dir", dir]
         if let executable { args += ["--executable", executable] }
-        return ProjectInit(options: try ProjectInit.Options.parse(args), projectName: "proj", kitPath: kit)
+        return ProjectInit(options: try ProjectInit.Options.parse(args), projectName: "proj", kit: .path(kit))
+    }
+
+    private func packageSwift(_ i: ProjectInit) throws -> String {
+        try #require(i.files().first { $0.path == "E2E/Package.swift" }).content
+    }
+
+    /// A WispstageKit root on disk: optionally a `.git` entry and a `.claude-plugin/plugin.json` with the given content.
+    private func kitRoot(git: Bool, pluginJSON: String?) throws -> String {
+        let root = try tempDir()
+        if git { try FileManager.default.createDirectory(at: root.appendingPathComponent(".git"), withIntermediateDirectories: true) }
+        if let pluginJSON {
+            let dir = root.appendingPathComponent(".claude-plugin")
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try Data(pluginJSON.utf8).write(to: dir.appendingPathComponent("plugin.json"))
+        }
+        return root.path
     }
 
     @Test func createsScenarioPackageAndConfigFile() throws {
@@ -69,8 +85,29 @@ struct ProjectInitTests {
 
     @Test func dependencyPackageNameIsTheLastComponentOfTheKitRoot() throws {
         let i = try demo(kit: "/tmp/plugins/cache/m/wispstage/0.1.0")
-        let pkg = try #require(i.files().first { $0.path == "E2E/Package.swift" }).content
-        #expect(pkg.contains(#".product(name: "WispstageKit", package: "0.1.0")"#))
+        #expect(try packageSwift(i).contains(#".product(name: "WispstageKit", package: "0.1.0")"#))
+    }
+
+    @Test func installedCopyDependsOnTheReleaseByURLAndVersion() throws {
+        let i = ProjectInit(options: .init(appName: "Demo", executable: nil, dir: "E2E"), projectName: "proj", kit: .release(version: "0.1.2"))
+        let pkg = try packageSwift(i)
+        #expect(pkg.contains(#".package(url: "https://github.com/yales66/wispstage", from: "0.1.2")"#))
+        #expect(pkg.contains(#".product(name: "WispstageKit", package: "wispstage")"#))
+        let code = pkg.split(separator: "\n").filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
+        #expect(!code.contains { $0.contains(".package(path:") })
+        #expect(pkg.contains(#"//   .package(path: "<"#), "the header comment explains how to switch to a local checkout")
+        #expect(i.nextSteps.contains(#".product(name: "Wispstage", package: "wispstage")"#))
+    }
+
+    @Test(arguments: [
+        ("plugin cache copy without .git is a release", false, #"{"name": "wispstage", "version": "0.1.2"}"#, true),
+        ("checkout with .git keeps the local path", true, #"{"name": "wispstage", "version": "0.1.2"}"#, false),
+        ("no plugin.json keeps the local path", false, nil, false),
+        ("plugin.json without a version keeps the local path", false, #"{"name": "wispstage"}"#, false),
+    ] as [(String, Bool, String?, Bool)])
+    func detectsDependencyFromTheKitRoot(_ name: String, _ git: Bool, _ pluginJSON: String?, _ isRelease: Bool) throws {
+        let root = try kitRoot(git: git, pluginJSON: pluginJSON)
+        #expect(ProjectInit.kitDependency(root: root) == (isRelease ? .release(version: "0.1.2") : .path(root)))
     }
 
     @Test(arguments: [
@@ -97,7 +134,7 @@ struct ProjectInitTests {
         ("spaces in the name become hyphens", "My App", "proj", "my-app-e2e", ".build/debug/My App"),
     ] as [(String, String?, String, String, String)])
     func appNameAndDefaults(_ name: String, _ appName: String?, _ projectName: String, _ product: String, _ executable: String) {
-        let i = ProjectInit(options: .init(appName: appName, executable: nil, dir: "E2E"), projectName: projectName, kitPath: "/k/wispstage")
+        let i = ProjectInit(options: .init(appName: appName, executable: nil, dir: "E2E"), projectName: projectName, kit: .path("/k/wispstage"))
         #expect(i.product == product)
         #expect(i.executable == executable)
     }

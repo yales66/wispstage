@@ -402,7 +402,7 @@ wispstage run --mode foreground smoke.
 
 默认模式是后台模式，它需要测试宿主；加上测试宿主之前，请传 `--mode foreground`，否则每个场景都会在启动时失败。在生成的 `E2E/Sources/…/SmokeScenarios.swift` 里，把 `anchorID` 设成你应用里已有的某个无障碍标识；在你设置之前，冒烟场景会退而使用它找到的第一段静态文字。
 
-`init` 让 `E2E/Package.swift` 用绝对路径指向执行它的那份 Wispstage（插件的安装目录或你的克隆）。提交之前，请改用已发布的包，这样路径在别的机器上也能用：`.package(url: "https://github.com/yales66/wispstage", from: "0.1.0")`，并在 `.product(name: "WispstageKit", …)` 条目里写上 `package: "wispstage"`。
+由 Claude Code 插件执行 `init` 时，`E2E/Package.swift` 依赖插件版本对应的已发布包：`.package(url: "https://github.com/yales66/wispstage", from: "<版本号>")`。由你的克隆执行时，`E2E/Package.swift` 用绝对路径指向这份克隆。提交该文件之前，请改用已发布的包，这样它在别的机器上也能用：`.package(url: "https://github.com/yales66/wispstage", from: "0.1.0")`，并在 `.product(name: "WispstageKit", …)` 条目里写上 `package: "wispstage"`。
 
 ## 命令
 

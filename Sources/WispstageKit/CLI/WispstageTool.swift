@@ -65,11 +65,11 @@ public enum WispstageTool {
             case "init":
                 let o = try ProjectInit.Options.parse(rest)
                 let cwd = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-                let i = ProjectInit(options: o, projectName: cwd.lastPathComponent, kitPath: ProjectInit.kitRoot())
+                let i = ProjectInit(options: o, projectName: cwd.lastPathComponent, kit: ProjectInit.kitDependency(root: ProjectInit.kitRoot()))
                 let report = try i.write(to: cwd)
                 for f in report.created { print("Created \(f)") }
                 for f in report.skipped { print("Already exists, not overwritten: \(f)") }
-                print("The scenario package depends on WispstageKit at \(i.kitPath)\n")
+                print("The scenario package depends on WispstageKit at \(i.kitDescription)\n")
                 print(i.nextSteps, terminator: "")
             case "-h", "--help", "help":
                 print(usage)

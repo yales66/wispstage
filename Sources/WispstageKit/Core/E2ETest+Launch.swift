@@ -67,7 +67,7 @@ extension E2ETest {
         guard ok else { throw E2EFailure("App not ready after \(spec.readyTimeout)s") }
         do { try p.connectStage(path: stageSocket) } catch {
             guard !runMode.requiresStage else {
-                throw E2EFailure("Cannot connect to the stage in the app under test (\(error)): the test host must call Wispstage.install() before run")
+                throw E2EFailure(Self.stageMissingMessage(error))
             }
             log("  App under test does not link the stage library (\(error)); foreground mode runs anyway, beeps have no source and are not checked")
         }
@@ -75,6 +75,13 @@ extension E2ETest {
         _ = Wait.until { !(axApp?.windows.isEmpty ?? true) }
         if spec.checksVisibility, hiddenRun { try VisibilityGate.verify(pid: p.pid, log: log) }
         if inputMode == .hid { activate() }
+    }
+
+    /// Failure text when a background run cannot reach the stage library in the app under test.
+    static func stageMissingMessage(_ error: Error) -> String {
+        "Cannot connect to the stage in the app under test (\(error)): this run is in background mode and the app under test does not link the stage library; "
+            + "run it as it is with --mode foreground (takes over the screen, keyboard and cursor), "
+            + "or add a test host that calls Wispstage.install() before run (adoption level 2)"
     }
 
     func stopApp(gracefully: Bool) {
