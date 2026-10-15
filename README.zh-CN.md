@@ -29,7 +29,7 @@ Wispstage 是一个 Swift 包，也是一个 Claude Code 插件。你请智能�
 
 ![Wispstage 架构：驱动进程运行你的场景和检查；它通过辅助功能、按键事件、连到舞台库的 Unix 套接字和可选的命令通道触达测试宿主，并截取应用的窗口供检查使用](docs/architecture.zh-CN.svg)
 
-<sub>[可编辑的源文件](docs/architecture.zh-CN.drawio)</sub>
+<p align="center"><sub>一次后台运行：一条 <code>wispstage run</code> 启动驱动进程，驱动经辅助功能、按键事件、连到舞台库的 Unix 套接字和可选的标准输入输出通道触达测试宿主，每一步之后检查应用的每个窗口。</sub></p>
 
 ## 快速上手
 
@@ -446,7 +446,7 @@ wispstage run --mode foreground smoke.
 swift test
 ```
 
-需要图形会话或屏幕录制权限的测试，在不具备这些条件的机器上会自行跳过。`.github/workflows/ci.yml` 在 GitHub 的 macOS runner 上构建并测试。技能位于 `skills/wispstage/`，插件清单位于 `.claude-plugin/`。
+需要图形会话或屏幕录制权限的测试，在不具备这些条件的机器上会自行跳过。架构图的源文件是 `docs/architecture.zh-CN.drawio`（英文版为 `docs/architecture.drawio`）。`.github/workflows/ci.yml` 在 GitHub 的 macOS runner 上构建并测试。技能位于 `skills/wispstage/`，插件清单位于 `.claude-plugin/`。
 
 ## 许可证
 
