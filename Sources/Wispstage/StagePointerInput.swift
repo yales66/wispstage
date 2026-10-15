@@ -53,7 +53,7 @@ enum StagePointerInput {
         case let .click(n, p, right, count, mods):
             let w = try window(n)
             let loc = location(p, in: w)
-            try await waitUntilHitTestable(w, at: loc)
+            try await waitUntilPlaced(w)
             prepare(w, at: loc)
             let (down, up): (NSEvent.EventType, NSEvent.EventType) = right ? (.rightMouseDown, .rightMouseUp) : (.leftMouseDown, .leftMouseUp)
             for i in 1...max(count, 1) {
@@ -65,7 +65,7 @@ enum StagePointerInput {
         case let .drag(n, a, b, steps):
             let w = try window(n)
             let start = location(a, in: w)
-            try await waitUntilHitTestable(w, at: start)
+            try await waitUntilPlaced(w)
             prepare(w, at: start)
             post(mouse(.leftMouseDown, start, in: w, pressure: 1))
             try await pause(.milliseconds(100))
@@ -80,7 +80,7 @@ enum StagePointerInput {
             guard held == nil else { throw StageClientError("left button already down, send up first") }
             let w = try window(n)
             let loc = location(p, in: w)
-            try await waitUntilHitTestable(w, at: loc)
+            try await waitUntilPlaced(w)
             prepare(w, at: loc)
             post(mouse(.leftMouseDown, loc, in: w, pressure: 1))
             held = (w, p)
@@ -119,13 +119,33 @@ enum StagePointerInput {
         return w
     }
 
-    /// Right after a window is first shown, its frame view can hit-test to nil for a few milliseconds (seen on a macOS 26.6 GitHub runner,
-    /// between 1 and 12 ms after the first display cycle). A mouse down posted then reaches no view, and the drags and up that follow have no
-    /// receiver either. Wait until the point hits a view; on timeout, post anyway as before.
-    private static func waitUntilHitTestable(_ w: NSWindow, at loc: NSPoint) async throws {
-        guard let frame = w.contentView?.superview, frame.frame.contains(loc) else { return }
-        let deadline = ContinuousClock.now + .milliseconds(250)   // to be measured: only the 1 to 12 ms range above is known
-        while frame.hitTest(loc) == nil, ContinuousClock.now < deadline { try await pause(.milliseconds(4)) }   // 4 ms: to be measured
+    /// A window just shown isn't in the window server's list until a few milliseconds after its first display cycle. On a macOS 26.6 GitHub runner
+    /// (1024×768 screen), a mouse down posted at (10, 70) in a 120×80 window at the bottom-left and dispatched in that gap arrived at (10, -618),
+    /// outside the window, so no view got the press, nor the drags and up after it (measured 2026-10-15). The offset is what converting through the
+    /// screen with the window at the screen's top-left corner gives, so dispatch appears to use the window server's position (inferred, not traced).
+    /// The window was listed 6 to 8 ms after the display cycle there, and 11 to 25 ms after it on macOS 27.2, where locations arrived intact anyway.
+    /// Wait until the window server has the window where AppKit has it; on timeout, post anyway.
+    private static func waitUntilPlaced(_ w: NSWindow) async throws {
+        let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
+        let deadline = ContinuousClock.now + .milliseconds(250)   // chosen: 10 times the longest wait seen (25 ms, above)
+        while !isPlaced(frame: w.frame, serverBounds: serverBounds(w), primaryHeight: primaryHeight), ContinuousClock.now < deadline {
+            try await pause(.milliseconds(4))   // chosen, not measured
+        }
+    }
+
+    /// The window's bounds in the window server's list (global coordinates, origin at the primary screen's top-left), or nil while it isn't listed.
+    private static func serverBounds(_ w: NSWindow) -> CGRect? {
+        let info = CGWindowListCopyWindowInfo([.optionIncludingWindow], CGWindowID(w.windowNumber)) as? [[String: Any]]
+        guard let dict = info?.first?[kCGWindowBounds as String] as? NSDictionary else { return nil }
+        return CGRect(dictionaryRepresentation: dict)
+    }
+
+    /// Whether the window server has the window at AppKit's frame, give or take half a point (chosen: below any whole-point move).
+    nonisolated static func isPlaced(frame: NSRect, serverBounds: CGRect?, primaryHeight: CGFloat) -> Bool {
+        guard let s = serverBounds else { return false }
+        let expected = CGRect(x: frame.minX, y: primaryHeight - frame.maxY, width: frame.width, height: frame.height)
+        return abs(s.minX - expected.minX) <= 0.5 && abs(s.minY - expected.minY) <= 0.5
+            && abs(s.width - expected.width) <= 0.5 && abs(s.height - expected.height) <= 0.5
     }
 
     private static func prepare(_ w: NSWindow, at loc: NSPoint) {
