@@ -95,7 +95,7 @@ t.skipPastEvents()
 
 ## Motion
 
-`t.recordMotion("name", ids: ["panel.content"], specs: [...]) { try t.press(id: "panel.open") }` records the frames of the identified elements and screen captures frame by frame during the actions in the block, and writes `motion-<name>.txt` and `.png`. Deviations from the specs go into the report only and do not fail the step. Parameters are in `../../Sources/WispstageKit/Motion/MotionRecord.swift`.
+`t.recordMotion("name", ids: ["panel.content"], specs: [...]) { try t.press(id: "panel.open") }` records the frames of the identified elements and screen captures frame by frame during the actions in the block and until the elements settle (at least 1 s after the pointer is released, at most `timeout`), and writes `motion-<name>.txt`, `.png` and `.jsonl`. Deviations from the specs go into the report only and do not fail the step. Parameters are in `../../Sources/WispstageKit/Motion/MotionRecord.swift`.
 
 ## Configuration (scenario package main.swift)
 

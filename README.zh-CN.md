@@ -12,7 +12,7 @@
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-lightgrey.svg)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138.svg)
 
-[快速上手](#快速上手) · [工作原理](#工作原理) · [检查项](#检查项) · [编写场景](#编写场景) · [面向编码智能体](#面向编码智能体) · [English](README.md)
+[快速上手](#快速上手) · [工作原理](#工作原理) · [检查项](#检查项) · [编写场景](#编写场景) · [测量动效](#测量动效) · [面向编码智能体](#面向编码智能体) · [English](README.md)
 
 </div>
 
@@ -23,7 +23,7 @@ Wispstage 通过辅助功能（Accessibility）和合成输入来操控 SwiftUI 
 - 场景是编译好的 Swift 代码，运行期间不调用任何模型。智能体写一次场景，事后读一份文字摘要即可。
 - 截图的基准图按语言、外观和时钟格式分开保存，每处像素差异都附一张高亮图。
 - 应用的标准输入输出上可以开一条可选的命令通道，场景借它读取应用状态、等待应用事件。
-- 动效录制逐帧跟踪元素在动画中的位置。
+- 动画逐帧测量，窗口压在墙纸下也能测，并与设计指定的 SwiftUI 弹簧比对：终值、稳定所需时间和过冲。
 - 测试代码放在单独的测试宿主 target 里；正式发布的应用不链接任何 Wispstage 代码。
 - 来自不同检出目录（checkout）的后台运行，只要各自测试应用的包标识（bundle identifier）不同，就能同时进行。
 
@@ -279,15 +279,64 @@ try t.waitEvent("item.saved", where: { $0["id"] as? Int == 3 })
 
 `t.shot("name")` 保留一张整窗截图，`t.shot(id:)` 裁出单个元素。`wispstage baseline accept <run-dir>` 把一次运行的截图存为基准图。要按语言、外观或时钟格式分开保存基准图，启动时带上变体名，例如 `LaunchSpec(…, variant: Baselines.variant(language: "en", appearance: .dark, hour24: true))`，基准图就会归到 `en-dark-24h/` 下。
 
-### 动效
-
-`t.recordMotion("open-panel", ids: ["panel.content"]) { try t.press(id: "panel.open") }` 在代码块运行期间逐帧记录元素的位置尺寸和屏幕画面。传入 `specs`，报告会列出运动偏离规格的地方；偏离不判该步失败。
-
 ### 钩子与配置
 
 `E2EHooks` 在每次启动前（并且可以拒绝启动）和每次停止后运行你的代码。`E2EConfiguration` 设置运行目录和基准图目录、供占位符检查使用的本地化键，以及截断检查所用的文字识别语言；中文界面要加上 `zh-Hans`。
 
 完整 API 见 [`skills/wispstage/references/api.md`](skills/wispstage/references/api.md)。
+
+## 测量动效
+
+`t.recordMotion` 按用户看到的样子测量动画：在应用外部逐帧测，再与设计要求的弹簧曲线比对。后台模式下照样能用：屏幕捕获只合成应用自己的窗口，墙纸压在上面也挡不住。
+
+```swift
+let lift = MotionSpec(name: "Lift", anchor: .firstMove, track: .moving, source: "Design spec §3",
+                      expectations: [MotionExpectation(.scale, from: 1, to: 1.03, spring: MotionSpring(.snappy, duration: 0.25))])
+let drop = MotionSpec(name: "Drop", anchor: .release, track: .moving, source: "Design spec §3",
+                      expectations: [MotionExpectation(.scale, to: 1, spring: MotionSpring(.snappy, duration: 0.35))])
+try t.recordMotion("reorder", ids: ["list.row.a"], specs: [lift, drop]) {
+    try t.drag(from: "list.row.a", to: .offset(dx: 0, dy: 120))
+}
+```
+
+这段把列表的一行往下拖 120 点，检查两件事：拖动开始时，这一行以 0.25 秒的 `.snappy` 弹簧浮起到 103%；松手后，它以 0.35 秒的弹簧落回 100%。
+
+### 怎么测
+
+每个标识对应的元素都从两条途径跟踪。一是每 2 毫秒读一次它的辅助功能位置尺寸；二是以最高每秒 120 帧捕获屏幕，用模板匹配跟踪它的像素。像素跟踪还能跟住辅助功能树里没有的东西，比如拖动时浮起的那份副本，并能测出透明度。两条途径共用一个时钟。
+
+代码块返回后录制还会继续，直到元素静止满 0.3 秒为止；松手后至少录 1 秒，最多等 5 秒，所以完整的回弹过程都在里面。时间零点取第一帧发生变化的时刻，而不是输入送达的时刻，每条规格可以各选一个：
+
+| 锚点 | 时间零点 |
+|---|---|
+| `.start` | 录制开始 |
+| `.firstMove` | 交互开始后第一次变化，比如浮起 |
+| `.release` | 松开指针后第一次变化，比如落下 |
+
+`track: .moving` 比对该时段内移动最多的元素；`.original` 用第一个标识的辅助功能位置尺寸；`.named("list.row.a~capture")` 按名字指定一条轨迹。
+
+### 规格检查什么
+
+一条期望写明一个通道（`x`、`y`、`width`、`height`、`scale` 或 `opacity`）、应到达的终值，可选写起始值，也可选写一条弹簧：`.snappy`、`.smooth` 或 `.bouncy` 加时长，即 SwiftUI `Spring` 的几种预设。
+
+| 比对项 | 何时检查 | 容差 |
+|---|---|---|
+| `x`、`y`、`width`、`height` 的终值 | 总是 | ±0.5 pt |
+| `scale`、`opacity` 的终值 | 总是 | ±0.01 |
+| 到达终值 95% 的时刻，与弹簧曲线对照 | 给了弹簧 | ±42 ms |
+| 越过终值的过冲 | 给了弹簧 | 移动不超过 50 pt 时 ±0.9 个百分点，超过时 ±0.15 个百分点 |
+| 各帧偏离弹簧曲线的最大值 | 给了弹簧 | 同终值容差 |
+
+`minPointerTravel:` 再加一项检查：元素开始变化的那一刻，离原位至少要有这么多点。小到一个捕获像素都分辨不出的差异，记为 `below resolution, not judged`。所有差异都写进报告和 `steps.log`，不判该步失败。
+
+### 产出文件
+
+| 文件 | 内容 |
+|---|---|
+| `motion-<name>.txt` | 每条规格的每一项：规格值、实测值和差值，超出容差的会标出；之后列出每个元素何时开始变化、何时到达 95%、过冲多少 |
+| `motion-<name>.png` | 每条规格一行定格图，取时间零点后 0、50、100、150、250、400 毫秒（用 `stills:` 改时刻） |
+| `motion-<name>.jsonl` | 每个读数：时间、元素、来源、位置、尺寸、缩放和透明度 |
+| `motion-<name>-frames/` | 设置 `WISPSTAGE_MOTION_FRAMES=1` 时，导出捕获到的每一帧 |
 
 ## 解读运行结果
 
@@ -370,6 +419,7 @@ Claude Code 插件附带一个技能，涵盖接入、编写场景、运行和�
 - 复数检查只查 "1" 后面跟复数名词的情况，而且只针对英文界面。
 - AppKit 在「此按键无响应者」路径之外播放的提示音检测不到。
 - 把窗口藏在墙纸之下、在应用内部投递按键事件，依赖的是 macOS 窗口服务器和 AppKit 当前的行为；macOS 更新可能改变这些行为。
+- 动效录制测不了阴影；测透明度时假定元素背后的背景是均匀的；只能与弹簧曲线比对，不支持线性或缓入缓出曲线；一次只录第一个标识所在的窗口。它的容差按纯色元素设定，元素上有文字或阴影时，像素跟踪的精度会下降。
 - 仅支持 macOS。
 
 ## 开发

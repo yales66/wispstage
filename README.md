@@ -12,7 +12,7 @@ and every step is checked for broken UI without you writing an assertion.
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-lightgrey.svg)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138.svg)
 
-[Quick start](#quick-start) · [How it works](#how-it-works) · [What it checks](#what-it-checks) · [Writing scenarios](#writing-scenarios) · [For coding agents](#for-coding-agents) · [中文说明](README.zh-CN.md)
+[Quick start](#quick-start) · [How it works](#how-it-works) · [What it checks](#what-it-checks) · [Writing scenarios](#writing-scenarios) · [Measuring animations](#measuring-animations) · [For coding agents](#for-coding-agents) · [中文说明](README.zh-CN.md)
 
 </div>
 
@@ -23,7 +23,7 @@ Wispstage drives SwiftUI and AppKit apps through Accessibility and synthesized i
 - Scenarios are compiled Swift, so a run makes no model calls. An agent writes a scenario once and reads a text summary afterward.
 - Screenshot baselines are kept per language, appearance and clock format, and every pixel difference comes with a highlight image.
 - An optional command channel on the app's standard input and output lets scenarios read app state and wait for app events.
-- Motion recording follows elements frame by frame through an animation.
+- Animations are measured frame by frame, even beneath the wallpaper, and compared with the SwiftUI spring your design specifies: end value, time to settle and overshoot.
 - Test code lives in a separate test-host target; your release app links nothing from Wispstage.
 - Background runs from different checkouts run at the same time when their test apps have different bundle identifiers.
 
@@ -279,15 +279,64 @@ try t.waitEvent("item.saved", where: { $0["id"] as? Int == 3 })
 
 `t.shot("name")` keeps a full-window screenshot and `t.shot(id:)` crops one element. `wispstage baseline accept <run-dir>` saves a run's screenshots as baselines. To keep separate baselines per language, appearance or clock format, launch with a variant name, such as `LaunchSpec(…, variant: Baselines.variant(language: "en", appearance: .dark, hour24: true))`, which files them under `en-dark-24h/`.
 
-### Motion
-
-`t.recordMotion("open-panel", ids: ["panel.content"]) { try t.press(id: "panel.open") }` records the element's frame and the screen frame by frame while the block runs. Pass `specs` and the report lists where the movement deviates from them; deviations do not fail the step.
-
 ### Hooks and configuration
 
 `E2EHooks` runs your code before each launch (and can refuse it) and after each stop. `E2EConfiguration` sets the run and baseline folders, your localization keys for the placeholder check, and the text recognition languages for the truncation check; add `zh-Hans` for a Chinese UI.
 
 The full API is in [`skills/wispstage/references/api.md`](skills/wispstage/references/api.md).
+
+## Measuring animations
+
+`t.recordMotion` measures an animation the way a user sees it, frame by frame and from outside the app, and compares it with the spring your design calls for. It works in background mode too: the screen capture composites only the app's window, so the wallpaper above it hides nothing.
+
+```swift
+let lift = MotionSpec(name: "Lift", anchor: .firstMove, track: .moving, source: "Design spec §3",
+                      expectations: [MotionExpectation(.scale, from: 1, to: 1.03, spring: MotionSpring(.snappy, duration: 0.25))])
+let drop = MotionSpec(name: "Drop", anchor: .release, track: .moving, source: "Design spec §3",
+                      expectations: [MotionExpectation(.scale, to: 1, spring: MotionSpring(.snappy, duration: 0.35))])
+try t.recordMotion("reorder", ids: ["list.row.a"], specs: [lift, drop]) {
+    try t.drag(from: "list.row.a", to: .offset(dx: 0, dy: 120))
+}
+```
+
+This drags a list row down by 120 points and checks two things: that the row lifts to 103% with a `.snappy` spring of 0.25 s when the drag starts, and that it settles back to 100% with a 0.35 s spring after the drop.
+
+### How it measures
+
+Each identified element is followed in two ways. Its accessibility frame is read every 2 ms. Its pixels are captured at up to 120 frames per second and followed by template matching, which also tracks what the accessibility tree does not report, such as the floating copy of a dragged row, and measures opacity. Both share one clock.
+
+Recording goes on after the block returns until the element has been still for 0.3 s, at least 1 s after the pointer is released and at most 5 s, so the whole settle is captured. Time zero is the first frame that changes, not the moment the input arrived, and each spec picks its own:
+
+| Anchor | Time zero |
+|---|---|
+| `.start` | The start of the recording |
+| `.firstMove` | The first change after the interaction starts, such as a lift |
+| `.release` | The first change after the pointer is released, such as a drop |
+
+`track: .moving` compares the element that moved the most in that window; `.original` uses the first identifier's accessibility frame, and `.named("list.row.a~capture")` picks one track by name.
+
+### What a spec checks
+
+An expectation names a channel (`x`, `y`, `width`, `height`, `scale` or `opacity`), the value it should end at, optionally where it starts, and optionally a spring: `.snappy`, `.smooth` or `.bouncy` with a duration, the presets of SwiftUI's `Spring`.
+
+| Item | Checked when | Tolerance |
+|---|---|---|
+| End value of `x`, `y`, `width`, `height` | Always | ±0.5 pt |
+| End value of `scale`, `opacity` | Always | ±0.01 |
+| Time to reach 95% of the end value, against the spring's curve | A spring is given | ±42 ms |
+| Overshoot past the end value | A spring is given | ±0.9 percentage points for moves up to 50 pt, ±0.15 above |
+| Largest deviation of any frame from the spring's curve | A spring is given | Same as the end value |
+
+`minPointerTravel:` adds one more check: when the element starts to change, it must already be at least that many points from where it started. A difference smaller than one captured pixel can show is reported as `below resolution, not judged`. All differences go into the report and `steps.log`; they do not fail the step.
+
+### What it writes
+
+| File | Contents |
+|---|---|
+| `motion-<name>.txt` | For each spec, every item as spec, measured value and difference, with values outside tolerance marked; then, for each element, when it started changing, when it reached 95% and how far it overshot |
+| `motion-<name>.png` | A filmstrip per spec at 0, 50, 100, 150, 250 and 400 ms after time zero (`stills:` changes the offsets) |
+| `motion-<name>.jsonl` | Every reading: time, element, source, position, size, scale and opacity |
+| `motion-<name>-frames/` | Every captured frame, when `WISPSTAGE_MOTION_FRAMES=1` is set |
 
 ## Reading the results
 
@@ -370,6 +419,7 @@ Give the test host in each git worktree its own bundle identifier and the worktr
 - The plural check looks only for "1" followed by a plural noun, and only in an English UI.
 - Beeps that AppKit plays outside its "no responder for this key" path are not detected.
 - Hiding windows beneath the wallpaper and delivering key events inside the app rely on how the macOS window server and AppKit behave today; a macOS update can change that.
+- Motion recording cannot measure shadows, assumes a uniform background behind an element when it measures opacity, compares against springs only (no linear or ease-in-out curves), and records the window of the first identifier only. Its tolerances are set for solid-colored elements; text and shadows on an element make the pixel track less precise.
 - macOS only.
 
 ## Development
