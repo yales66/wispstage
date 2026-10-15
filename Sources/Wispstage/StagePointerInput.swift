@@ -53,6 +53,7 @@ enum StagePointerInput {
         case let .click(n, p, right, count, mods):
             let w = try window(n)
             let loc = location(p, in: w)
+            try await waitUntilHitTestable(w, at: loc)
             prepare(w, at: loc)
             let (down, up): (NSEvent.EventType, NSEvent.EventType) = right ? (.rightMouseDown, .rightMouseUp) : (.leftMouseDown, .leftMouseUp)
             for i in 1...max(count, 1) {
@@ -64,6 +65,7 @@ enum StagePointerInput {
         case let .drag(n, a, b, steps):
             let w = try window(n)
             let start = location(a, in: w)
+            try await waitUntilHitTestable(w, at: start)
             prepare(w, at: start)
             post(mouse(.leftMouseDown, start, in: w, pressure: 1))
             try await pause(.milliseconds(100))
@@ -78,6 +80,7 @@ enum StagePointerInput {
             guard held == nil else { throw StageClientError("left button already down, send up first") }
             let w = try window(n)
             let loc = location(p, in: w)
+            try await waitUntilHitTestable(w, at: loc)
             prepare(w, at: loc)
             post(mouse(.leftMouseDown, loc, in: w, pressure: 1))
             held = (w, p)
@@ -114,6 +117,15 @@ enum StagePointerInput {
     private static func window(_ n: Int) throws -> NSWindow {
         guard let w = NSApp.window(withWindowNumber: n), w.isVisible else { throw StageClientError("no visible window \(n)") }
         return w
+    }
+
+    /// Right after a window is first shown, its frame view can hit-test to nil for a few milliseconds (seen on a macOS 26.6 GitHub runner,
+    /// between 1 and 12 ms after the first display cycle). A mouse down posted then reaches no view, and the drags and up that follow have no
+    /// receiver either. Wait until the point hits a view; on timeout, post anyway as before.
+    private static func waitUntilHitTestable(_ w: NSWindow, at loc: NSPoint) async throws {
+        guard let frame = w.contentView?.superview, frame.frame.contains(loc) else { return }
+        let deadline = ContinuousClock.now + .milliseconds(250)   // to be measured: only the 1 to 12 ms range above is known
+        while frame.hitTest(loc) == nil, ContinuousClock.now < deadline { try await pause(.milliseconds(4)) }   // 4 ms: to be measured
     }
 
     private static func prepare(_ w: NSWindow, at loc: NSPoint) {
