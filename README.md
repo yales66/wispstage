@@ -402,7 +402,7 @@ wispstage run --mode foreground smoke.
 
 The default mode is background, which needs the test host; until you add one, pass `--mode foreground`, or every scenario fails at launch. In the generated `E2E/Sources/…/SmokeScenarios.swift`, set `anchorID` to an accessibility identifier your app has; until you do, the smoke scenario falls back to the first static text it finds.
 
-`init` points `E2E/Package.swift` at the copy of Wispstage that ran it (the plugin's install folder, or your clone) by absolute path. Before you commit it, switch to the published package so the path works on other machines: `.package(url: "https://github.com/yales66/wispstage", from: "0.1.0")`, and `package: "wispstage"` in the `.product(name: "WispstageKit", …)` entry.
+When the Claude Code plugin runs `init`, `E2E/Package.swift` depends on the published package at the plugin's version: `.package(url: "https://github.com/yales66/wispstage", from: "<version>")`. When your clone runs it, `E2E/Package.swift` points at the clone by absolute path. Before you commit that file, switch to the published package so it works on other machines: `.package(url: "https://github.com/yales66/wispstage", from: "0.1.0")`, and `package: "wispstage"` in the `.product(name: "WispstageKit", …)` entry.
 
 ## Commands
 
