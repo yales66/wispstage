@@ -1,117 +1,379 @@
+<div align="center">
+
 # Wispstage
 
-Wispstage 是给 macOS 应用做端到端测试的框架，同时是一个 Claude Code 插件。它在你的电脑上直接驱动被测应用：经辅助功能读界面、按按钮、打字，每一步跑一组通用检查，在关键步截图，最后给出汇总。它不改被测应用的行为，也不需要虚拟机，测试期间只多一个驱动进程。
+**Mac 应用的端到端测试，跑测试时你照常干活。**
 
-场景用 Swift 写，放在被测项目自己的场景包里。插件提供三样东西：驱动库 WispstageKit、测试舞台库 Wispstage（链接进被测应用的测试宿主）、命令行 `wispstage`，外加一个教 Claude 接入与写场景的技能。
+你的应用在桌面墙纸之下运行，光标和键盘仍归你用，<br>
+每一步都会自动检查界面有没有坏，不用你写一条断言。
 
-和 XCUITest 这类要把被测应用放在前台跑的方案相比，它多了后台模式：被测窗口压在墙纸之下，测试期间你照常用电脑。每一步都自带一组通用检查（截断、压叠、越界、占位文字、提示音等，见「运行结果」），场景里不用逐条写。接到第 2 级后，测试只碰单独的测试宿主，正式发布的应用一行测试代码都不带。
+[![CI](https://github.com/yales66/wispstage/actions/workflows/ci.yml/badge.svg)](https://github.com/yales66/wispstage/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![macOS 14+](https://img.shields.io/badge/macOS-14%2B-lightgrey.svg)
+![Swift 6](https://img.shields.io/badge/Swift-6-F05138.svg)
 
-## 两种运行模式
+[快速上手](#快速上手) · [工作原理](#工作原理) · [检查项](#检查项) · [编写场景](#编写场景) · [面向编码智能体](#面向编码智能体) · [English](README.md)
 
-每次运行由你指定，不指定时用后台模式。
+</div>
 
-| | 后台模式（默认） | 前台模式 |
-|---|---|---|
-| 被测窗口 | 压到桌面墙纸之下，你看不见 | 真到前台 |
-| 你的电脑 | 照常用：不动光标、不抢前台、不抢键盘、不出提示音 | 测试期间占用屏幕、键盘与光标；开跑前倒数 5 秒 |
-| 前提 | 被测应用的测试宿主链接了 Wispstage（接入第 2 级） | 无 |
-| 测得到的 | 场景调用 `t.requireForeground(...)` 或 `t.globalKey(...)` 之前的全部行为；从这一步起该场景余下的部分跳过，在 `summary.txt` 的 `Skipped in background mode` 一节列出 | 全部，包括全局快捷键与 key 窗口相关的行为 |
+Wispstage 通过辅助功能（Accessibility）和合成输入来操控 SwiftUI 与 AppKit 应用。你用 Swift 写场景（scenario）；Wispstage 在你自己的 Mac 上运行这些场景，每一步之后检查界面，并写出一份纯文本报告。全部通过时，编码智能体（coding agent）读这份报告只需几百个 token。
 
-后台模式会在每个场景前后比对光标位置，用来发现测试自己挪动了你的光标；场景期间你动过鼠标或触控板，这一项就不判。
+- 在后台模式下，应用的窗口始终压在墙纸之下，从不抢焦点。点击、拖拽、悬停和滚动都在应用内部执行，真实光标纹丝不动，全程不用虚拟机。后台模式需要在你的项目里加一个小小的测试宿主 target；没有它，运行就用前台模式，占用整个屏幕。
+- 每一步之后，崩溃、卡死、文字被截断或互相压叠、文字越出窗口、占位符未替换，以及（有测试宿主时）无人处理的按键发出的提示音，都会直接判该步失败。对比度过低、点击区域过小和缺少无障碍标识则列出来供你复查。
+- 场景是编译好的 Swift 代码，运行期间不调用任何模型。智能体写一次场景，事后读一份文字摘要即可。
+- 截图的基准图按语言、外观和时钟格式分开保存，每处像素差异都附一张高亮图。
+- 应用的标准输入输出上可以开一条可选的命令通道，场景借它读取应用状态、等待应用事件。
+- 动效录制逐帧跟踪元素在动画中的位置。
+- 测试代码放在单独的测试宿主 target 里；正式发布的应用不链接任何 Wispstage 代码。
+- 来自不同检出目录（checkout）的后台运行，只要各自测试应用的包标识（bundle identifier）不同，就能同时进行。
 
-前台模式跑的过程中，如果光标被别人挪动，驱动会暂停这一步，等光标静止后重做一次。重做时光标又动了，这个场景就记为「被打断」（`interrupted`）：后面的步骤不再跑，既不算通过也不算失败，在 `summary.txt` 的 `Interrupted by user input` 一节列出。
+Wispstage 诞生于用编码智能体测试一款正式上线的 Mac 应用的过程中。
 
-## 安装
+## 每次运行的产出
 
-在终端运行：
+每次运行结束都会生成一份 `summary.txt`：
+
+```
+MyApp E2E  2026-10-15T10:15:00Z
+Run mode: background
+Input: inprocess
+Full-window screenshots: key
+Passed: 1  Failed: 1  Skipped: 1  Interrupted: 0  Known failures: 0
+
+Skipped in background mode (1, run with --mode foreground to test them):
+  hotkeys.global @01-launch: Step needs foreground mode: global hotkeys need system keyboard events
+
+Passed  smoke.launch  (4.8s, 4 steps)
+Failed  settings.save  (9.1s, 7 steps)
+      Failed step: 04-open-settings
+      Reason: [truncation] settings#4512 "Notify me when a session ends"(412,318 180x16) is truncated: recognized "Notify me when a sess…" in the screenshot, with an ellipsis
+      Crop [truncation] failed @ 04-open-settings "settings.notify": /Users/me/MyApp/build/e2e-runs/20261015-101500/settings.save/04-open-settings-settings.notify.png
+      Missing identifier (1, listed for review):
+        @04-open-settings Button"Advanced…" (16,240 96x20)
+Skipped  hotkeys.global  (1.2s, 1 step)
+      Skipped at: 01-launch
+      Reason: Step needs foreground mode: global hotkeys need system keyboard events
+```
+
+`settings.save` 场景里没有任何关于截断的断言。这项检查在每一步之后都会运行，摘要直接指向被截断标签的裁图。步骤按运行顺序编号（`04-open-settings`），窗口按种类和窗口编号命名（`settings#4512`），位置尺寸写作 `(x,y 宽x高)`，单位是点（pt）。`Input: inprocess` 表示指针输入是在应用内部执行的。
+
+## 与其他方案的比较
+
+| 测试套件运行期间 | XCUITest | 计算机操作智能体 | Wispstage 后台模式 |
+|---|---|---|---|
+| 你的光标和键盘 | 被占用 | 被占用 | 归你用 |
+| 应用的窗口 | 在最前面 | 在最前面 | 压在墙纸之下 |
+| 模型调用 | 无 | 每个动作一次，附一张截图 | 无 |
+| 需要准备什么 | 一个 UI 测试 target | 什么都不用 | 一个场景包和一个测试宿主 target |
+
+macOS 虚拟机同样不打扰你的桌面，代价是要多装一套 macOS（占几十 GB 磁盘，运行时占几 GB 内存），而且按 Apple 的许可协议，每台 Mac 最多运行两个 macOS 客户机。如果每次运行都必须从干净的系统镜像起步，选虚拟机。如果要在你日常工作的 Mac 上频繁快速地跑，选 Wispstage；[第 3 级接入](#接入级别)能让这些运行碰不到你的真实数据。
+
+## 快速上手
+
+### 安装
+
+在 Claude Code 中：
 
 ```bash
 claude plugin marketplace add yales66/wispstage
 claude plugin install wispstage@wispstage
 ```
 
-想从本机克隆的副本装，就先克隆再从本地目录添加（下文用 `<仓库目录>` 指克隆下来的目录）：
+插件会在 Claude Code 的 shell 里加上 `wispstage` 命令，并附带一个技能，教 Claude 接入框架、编写场景和解读结果。要在你自己的终端里用 `wispstage`，克隆本仓库，把 `bin/wispstage` 链接到 `PATH` 中的目录。首次调用会构建命令行工具，大约需要一分钟；之后的调用即时启动。
+
+### 环境要求
+
+macOS 14 或更高版本，以及 Swift 6 工具链（Xcode 16 或更高版本）。在「系统设置 → 隐私与安全性」中，给运行 `wispstage` 的终端应用授予**辅助功能**和**屏幕录制**权限（macOS 15 起这一项叫**录屏与系统录音**）。`wispstage run` 启动前会检查所需权限，缺哪项就报出哪项，并以退出码 1 退出。
+
+### 首次运行
+
+先构建你的应用，再把 `init` 指向它的可执行文件。Swift 包的做法：
 
 ```bash
-git clone https://github.com/yales66/wispstage wispstage
-claude plugin marketplace add ./wispstage
-claude plugin install wispstage@wispstage
+cd MyApp                                   # 你的项目根目录
+swift build
+wispstage init --app-name MyApp --executable .build/debug/MyApp
+wispstage run --mode foreground smoke.     # 运行名称以 "smoke." 开头的场景
 ```
 
-装好后，Claude Code 的 Bash 里可以直接用 `wispstage` 命令；在普通终端里用 `<仓库目录>/bin/wispstage`，或把它链接进 PATH。第一次调用时它会先用 `swift build` 编译命令行，编译缓存放在 `~/Library/Caches/wispstage/`（可用环境变量 `WISPSTAGE_CACHE` 换位置），插件源码更新后下次调用会自动重编。需要 Xcode 16 以上或 Swift 6 工具链。被测应用要求 macOS 14 以上（这是部署目标，实测过的系统是 macOS 27）。
+Xcode 项目则构建到项目目录里，并传入 `.app` 内部的可执行文件：
 
-## 权限
+```bash
+cd MyApp
+xcodebuild -scheme MyApp -derivedDataPath build/xcode build
+wispstage init --app-name MyApp --executable build/xcode/Build/Products/Debug/MyApp.app/Contents/MacOS/MyApp
+wispstage run --mode foreground smoke.
+```
 
-在系统设置的「隐私与安全性」里，给运行 wispstage 的终端应用（在 Claude Code 里用就是运行 Claude Code 的那个终端）打开「辅助功能」与「屏幕录制」。这一步只能由你本人在系统设置里操作。前台模式还要允许终端向系统发送键鼠事件。`wispstage run` 开跑前会逐项检查，缺了就退出并报 `The terminal running the driver lacks permissions: <缺的项>. Grant them to the terminal in System Settings > Privacy & Security, then run again.`，缺的项写作 `Accessibility`（辅助功能）、`Screen Recording`（屏幕录制）或 `event posting`（发送事件）。
+`init` 会在 `E2E/` 下创建一个场景包（scenario package），内含一个冒烟场景，并在项目根目录生成 `.wispstage.json`。它从不覆盖已有文件。`wispstage run` 会构建场景包，但不构建你的应用，所以改了应用之后，每次运行前都要重新构建应用。
 
-## 接入分级
+默认模式是后台模式，而后台模式需要测试宿主（[第 2 级接入](#接入级别)）。你的应用目前还没有测试宿主，所以首次运行要传 `--mode foreground`：倒计时 5 秒后，应用来到前台，运行期间占用你的屏幕、键盘和光标。没有测试宿主时，不带 `--mode` 的运行会让每个场景都在启动时失败。
 
-已有的项目可以一级一级接，接到哪一级就用到哪一级。
+运行结束后，读 `build/e2e-runs/<time>/summary.txt`。然后打开生成的 `E2E/Sources/…/SmokeScenarios.swift`，把 `anchorID` 设成你应用里已有的某个无障碍标识；在你设置之前，冒烟场景会退而使用它找到的第一段静态文字。
 
-| 级 | 应用要改什么 | 得到什么 |
+`init` 让 `E2E/Package.swift` 用绝对路径指向执行它的那份 Wispstage（插件的安装目录或你的克隆）。提交之前，请改用已发布的包，这样路径在别的机器上也能用：`.package(url: "https://github.com/yales66/wispstage", from: "0.1.0")`，并在 `.product(name: "WispstageKit", …)` 条目里写上 `package: "wispstage"`。
+
+## 工作原理
+
+![Wispstage 架构：驱动进程运行你的场景和检查；它通过辅助功能、按键事件、连到舞台库的 Unix 套接字和可选的命令通道触达测试宿主，并截取应用的窗口供检查使用](docs/architecture.zh-CN.svg)
+
+<sub>[可编辑的源文件](docs/architecture.zh-CN.drawio)</sub>
+
+一次后台模式的运行过程如下：
+
+1. `wispstage run` 找到 `.wispstage.json`，用 `swift run` 启动你的场景包。这个进程就是驱动进程（driver）：你的场景与 WispstageKit 编译在一起。
+2. 对每个场景，执行器（runner）先取锁，再运行场景。场景的启动步骤以 `WISPSTAGE_STAGE=1` 启动测试宿主，测试宿主内的舞台库（stage library）把窗口压在墙纸之下，并阻止应用激活或获得键盘焦点。
+3. 驱动通过四条途径触达应用：
+   - 辅助功能，用来读界面树、按按钮、设值和选菜单项。
+   - 发给应用进程的按键事件。舞台库把它们交给 key 窗口，所以 Esc 能取消，Return 能按下默认按钮。
+   - 连到舞台库的 Unix 套接字。指针命令发给应用，在应用内部执行；提示音和 key 窗口事件经它传回。
+   - 应用标准输入输出上的可选命令通道，用来传递场景所需的状态和事件。
+4. 每个动作之后，驱动等界面不再变化，读取界面树，截取窗口，运行各项检查。一个场景结束时，驱动把该场景的截图与已接受的基准图比对；最后一个场景结束时，写出 `summary.txt` 和 `results.json`。
+
+### 后台模式与前台模式
+
+| | 后台模式（默认） | 前台模式 |
 |---|---|---|
-| 0 | 不改，运行 `wispstage init` 生成场景包 | 只能前台模式；按文字与角色找元素；日历、通知等系统服务是真的 |
-| 1 | 给看得见、能操作的元素加辅助功能标识，命名为「区.元素」，如 `settings.save` | 按标识找元素，场景不随文案和语言变化 |
-| 2 | 建一个只在测试时用的测试宿主可执行目标，链接 Wispstage，在 `NSApplication` 建好之后、`run` 之前调 `Wispstage.install()`；场景包 `main.swift` 里的 `defaultExecutable` 改指测试宿主 | 后台模式；提示音检查有了来源 |
-| 3 | 把用到的系统服务（日历、通知、授权、计时器时钟、网络）改成接口，测试宿主装替身 | 测试不碰你真实的数据，不弹授权框 |
+| 你的 Mac | 你照常干活：光标不动，焦点不变，没有提示音 | 倒计时 5 秒后，屏幕、键盘和光标在运行期间被占用 |
+| 应用窗口 | 压在墙纸之下，从不成为 key 窗口 | 在最前面，拥有真实的键盘焦点 |
+| 输入 | 辅助功能动作、发给应用进程的按键事件、在应用内部执行的指针输入 | 辅助功能动作、真实的鼠标和键盘事件 |
+| 需要 | 一个链接 `Wispstage` 库、打包成 `.app` 的测试宿主 | 什么都不用 |
+| 可同时运行 | 其他包标识的应用的后台运行 | 无；它会等 Mac 上其他所有运行结束 |
 
-正式发布的应用不链接 Wispstage，正式代码里不出现测试分支。
+在后台模式下，场景遇到第一个 `t.requireForeground(...)` 或 `t.globalKey(...)` 调用就停下，`summary.txt` 会把它列在 `Skipped in background mode` 下。每个后台场景结束后，驱动会检查系统光标是否还在原处；如果是运行移动了光标，该场景失败；如果是你自己动了鼠标，则不判定位置。在前台运行中，若某一步期间光标被移动，该步会等光标静止后重试一次；第二次被移动，场景记为被中断。
 
-每一级具体怎么改、场景 API 怎么用，见 `skills/wispstage/references/integration.md` 与 `skills/wispstage/references/api.md`。一个场景大致长这样：
+### 接入级别
+
+| 级别 | 你要改什么 | 你能得到什么 |
+|---|---|---|
+| 0 | 什么都不改。运行 `wispstage init` | 前台运行；按文字和角色查找元素 |
+| 1 | 按 `area.element` 命名的无障碍标识，例如 `settings.save` | 文案改动和本地化之后场景依然可用 |
+| 2 | 一个测试宿主 target，链接 `Wispstage`，并在创建 `NSApplication` 之后、`run` 之前调用 `Wispstage.install()` | 后台运行和提示音检测 |
+| 3 | 把日历、通知、授权、时钟和网络放到协议后面，在测试宿主里换成测试替身 | 运行从不碰你的数据，也不弹权限提示 |
+
+### 添加测试宿主
+
+Wispstage 提供两个库。`WispstageKit` 供你的场景包使用。`Wispstage` 是舞台库，只有测试宿主链接它。
+
+测试宿主是第二个可执行 target，与正式发布的应用由同一份应用代码构建；测试套件启动的是它，而不是你的正式构建。在 Swift 包里，先把应用移到一个库 target，再给正式应用和测试宿主各配一个入口：
 
 ```swift
-scenario("smoke.launch") { t in
-    try t.launch(LaunchSpec(executable: t.configuration.defaultExecutable, ready: .anyWindow), step: "launch")
-    try t.click(.id("settings.save"))
-    try t.shot(id: "main.title")
+// Package.swift
+dependencies: [.package(url: "https://github.com/yales66/wispstage", from: "0.1.0")],
+targets: [
+    .target(name: "MyAppKit"),                                    // 应用本体
+    .executableTarget(name: "MyApp", dependencies: ["MyAppKit"]), // 正式发布的入口
+    .executableTarget(name: "MyAppTestHost", dependencies: [
+        "MyAppKit", .product(name: "Wispstage", package: "wispstage"),
+    ]),
+]
+```
+
+```swift
+// Sources/MyAppKit/MyApp.swift：App 结构体，public，不带 @main
+import SwiftUI
+
+public struct MyApp: App {
+    public init() {}
+    public var body: some Scene { WindowGroup { ContentView() } }
+}
+
+// Sources/MyApp/main.swift（正式发布）
+import MyAppKit
+MyApp.main()
+
+// Sources/MyAppTestHost/main.swift
+import AppKit
+import Wispstage
+import MyAppKit
+
+MainActor.assumeIsolated {
+    _ = NSApplication.shared
+    _ = Wispstage.install()   // 在 NSApplication 创建之后、应用运行之前
+    MyApp.main()
 }
 ```
 
-## 第一次跑
+Xcode 项目的思路相同：去掉 `App` 结构体上的 `@main`，新增第二个应用 target，编译同一批源文件外加它自己的 `main.swift`（不写 `import MyAppKit`），并且只给这个 target 添加 Wispstage 包。
 
-1. 在项目根运行 `wispstage init`。`--executable` 填被测可执行文件相对项目根的路径（只能填相对路径）。SwiftPM 项目不填时默认 `.build/debug/<应用名>`，其中应用名取 `--app-name`，没给就取项目目录名，不会自动认 Package.swift 里的目标名。Xcode 工程默认把 `.app` 编进项目外的 DerivedData，先让构建产物落到项目根下（如 `xcodebuild -derivedDataPath build/xcode`），再填 `.app` 包里 `Contents/MacOS/<名>` 的相对路径。
-2. 构建被测应用，确认上一步的路径下有可执行文件；不对就改场景包 `main.swift` 里的 `defaultExecutable`。生成的 `E2E/Package.swift` 按绝对路径依赖你本机的插件副本，提交前把这项依赖换成 `.package(url: "https://github.com/yales66/wispstage", from: "0.1.0")`，并把 `.product(name: "WispstageKit", ...)` 里的 `package:` 改成 `"wispstage"`。
-3. 打开生成的 `SmokeScenarios.swift`，把 `anchorID` 改成你应用里一个元素的辅助功能标识（还没加标识就先留着，场景会退回去找第一段静态文字）。
-4. 运行 `wispstage run --mode foreground smoke.`。接到第 2 级之前只能用前台模式：后台模式要靠测试舞台藏窗口，连不上舞台会直接报错。
-5. 打开 `build/e2e-runs/<时间戳>/summary.txt` 看结果（见「运行结果」）。
+然后让场景包指向测试宿主。在 `E2E/Sources/<product>/main.swift` 里，`init` 生成了一个 `E2EConfiguration(…)`，其中的 `defaultExecutable:` 指定要启动的应用。后台模式要求这个可执行文件位于 `.app` 包内：驱动从包里读取包标识，而裸的可执行文件会被 macOS 当作启动它的终端的一部分。Xcode 构建本来就产出 `.app`。`swift build` 的产物是裸的，需要包一层：
 
-## 命令一览
+```swift
+defaultExecutable: try PreviewBundle.prepare(
+    executable: projectDir.appendingPathComponent(".build/debug/MyAppTestHost"),
+    in: projectDir.appendingPathComponent("build/e2e-bundle"),
+    bundleID: "com.example.MyApp.testhost", name: "MyApp Test Host"),
+```
+
+`prepare` 把可执行文件复制进一个带该包标识的 `.app`，只在文件变化时重新复制，并返回包内的可执行文件。这之后，不带 `--mode` 的 `wispstage run` 就会以后台模式运行。[接入指南](skills/wispstage/references/integration.md)更详细地介绍了每个级别，包括 AppKit 测试宿主。
+
+## 检查项
+
+每个动作步骤之后，在应用的每个窗口上检查：
+
+| 判该步失败 | 列入摘要，不判失败 |
+|---|---|
+| 崩溃，或 5 s 内辅助功能无响应 | 文字对比度低于 WCAG 4.5:1（大号文字为 3:1） |
+| 文字被截断：先对窗口做文字识别发现，再在元素裁图上确认 | 点击区域小于 20×20 pt |
+| 文字互相压叠 | 同一列中的兄弟元素没有对齐 |
+| 文字越出窗口 | 可见元素缺少无障碍标识 |
+| 占位文字从未被替换：`%@`、`{name}`、原始本地化键 | 文字被其他视图部分遮挡 |
+| 英文界面中 "1" 后面跟复数名词，例如 "1 Minutes" | |
+| 应用不处理的按键发出提示音（第 2 级） | |
+| 后台模式下：有窗口成为 key 窗口，或应用来到前台 | |
+
+一个场景结束时，它的截图会与已接受的基准图比对。差异会连同高亮图一起列出，不判场景失败。
+
+只有提示音检查和后台模式的焦点检查需要测试宿主；其他检查在第 0 级都能用。检查失败时，摘要会链接相关元素的裁图。要接受某个已知的例外，用 `t.waive(.truncation, reason: "…")` 对下一步或一个代码块豁免某项检查。
+
+## 编写场景
+
+场景放在场景包里，应用的每个区域一个文件。新建 `E2E/Sources/<product>/SettingsScenarios.swift`：
+
+```swift
+import WispstageKit
+
+let settingsScenarios: [Scenario] = [
+    scenario("settings.save") { t in
+        try t.launch(LaunchSpec(executable: t.configuration.defaultExecutable), step: "launch")
+        try t.press(id: "main.openSettings")
+        try t.window(.settings)
+        try t.setValue("settings.name", "Ada", submit: false)
+        try t.press(id: "settings.save")
+        try t.waitGone(.settings)
+        try t.expect(try t.text(of: "main.greeting") == "Hello, Ada", "the greeting uses the saved name")
+        try t.shot(id: "main.greeting")
+    },
+]
+```
+
+然后在场景包的 `main.swift` 里把它加进 `allScenarios`（`smokeScenarios + settingsScenarios`）。
+
+`t.press(id:)` 和 `t.press(label:role:)` 执行元素的辅助功能动作，不需要指针。接受目标参数的调用（如 `t.click`、`t.setValue` 和 `t.shot`）把字符串当作无障碍标识，也接受 `.label("Save", role: .button)` 按文字查找元素；只响应鼠标的控件用 `t.click`。`setValue` 输入完会按 Return，除非你传 `submit: false`。每个动作就是一步：记入日志，等界面稳定，然后运行检查。
+
+`.settings` 是一种窗口种类。窗口的种类来自 `settings.window` 这样的标识，或来自包含 "Settings" 的标题；[api.md](skills/wispstage/references/api.md#targets-target) 说明了如何添加你自己的种类。
+
+### 已知失败
+
+`t.expectFailure("BUG-12") { … }` 把代码块内的失败记为已知失败，场景的其余部分照常运行。代码块不再失败时，摘要会提示该缺陷可能已修复。
+
+### 读取应用状态
+
+测试宿主可以从标准输入每行读一条命令，并在标准输出上用三种行作答。命令由你自己定义；管道是块缓冲的，所以应用每写一行都必须刷新标准输出：
+
+| 应用写出的行 | 含义 |
+|---|---|
+| `WISPSTAGE_EVENT {"type":"item.saved","id":3}` | 一个事件；`type` 必填 |
+| `WISPSTAGE_STATE <content>` | 名为 `STATE` 的应答（任何大写名称都可以） |
+| `WISPSTAGE_ERROR <reason>` | 一个错误；引发它的命令失败 |
+
+场景随后就能操控应用并等待它：
+
+```swift
+try t.send("advance 600")                                   // 例如把假时钟往前拨
+let state = try t.request("dump-state", reply: "STATE")    // 返回 <content>
+try t.waitEvent("item.saved", where: { $0["id"] as? Int == 3 })
+```
+
+### 基准图
+
+`t.shot("name")` 保留一张整窗截图，`t.shot(id:)` 裁出单个元素。`wispstage baseline accept <run-dir>` 把一次运行的截图存为基准图。要按语言、外观或时钟格式分开保存基准图，启动时带上变体名，例如 `LaunchSpec(…, variant: Baselines.variant(language: "en", appearance: .dark, hour24: true))`，基准图就会归到 `en-dark-24h/` 下。
+
+### 动效
+
+`t.recordMotion("open-panel", ids: ["panel.content"]) { try t.press(id: "panel.open") }` 在代码块运行期间逐帧记录元素的位置尺寸和屏幕画面。传入 `specs`，报告会列出运动偏离规格的地方；偏离不判该步失败。
+
+### 钩子与配置
+
+`E2EHooks` 在每次启动前（并且可以拒绝启动）和每次停止后运行你的代码。`E2EConfiguration` 设置运行目录和基准图目录、供占位符检查使用的本地化键，以及截断检查所用的文字识别语言；中文界面要加上 `zh-Hans`。
+
+完整 API 见 [`skills/wispstage/references/api.md`](skills/wispstage/references/api.md)。
+
+## 解读运行结果
+
+每次运行写出 `build/e2e-runs/<time>/`，其中有 `summary.txt`、`results.json`，以及每个场景一个目录：
+
+| 文件 | 内容 |
+|---|---|
+| `steps.log` | 每一步、每次等待和每项检查 |
+| `NN-<step>.ax.txt` | 该步界面的文字形式，每个元素一行，含角色、标识、文字和位置尺寸；先读这个 |
+| `NN-<step>.png` | 整窗截图，由 `--shots` 决定保留哪些 |
+| `NN-<step>-<element>.png` | 来自 `t.shot(id:)` 和失败检查的元素裁图 |
+| `<shot>.diff.png` | 与基准图的像素差异 |
+| `ax-<step>.txt`、`NN-<step>-failed.png` | 某步失败时：每个窗口辅助功能树的原始转储，以及一张截图 |
+| `events.jsonl`、`app-stderr.log` | 应用的事件和标准错误输出 |
+
+`--shots=key`（默认）保留第一步、最后一步和失败步骤的整窗截图；`all` 保留每一步的；`none` 一张不留，但失败检查的裁图照样写出。显式的 `t.shot` 调用总会截图。
+
+`wispstage run` 的退出码：没有失败为 0；有场景失败或缺少权限为 1；没有场景匹配或参数无效为 2；运行开始前屏幕已锁定为 75。被跳过和被中断的场景不影响退出码。
+
+## 面向编码智能体
+
+替你编写和运行测试的智能体，读的每样东西都要付费。Wispstage 把这部分开销压得很小：
+
+- 全部通过的运行只有一份 `summary.txt`。只有出了失败，智能体才需要打开更多文件。
+- 每一步的界面还会存成文字（`.ax.txt`），给出精确的标识和字符串，不必从图片里辨认。
+- 智能体确实需要看图时，可以只打开单个元素的裁图，而不是整个窗口。
+
+智能体读一张 Retina 窗口的整窗截图要花 2,000 到 4,600 个 token，具体取决于模型如何缩放图片，所以每一步之后看一张，开销很快就会累积起来。用 Wispstage 时，全部通过的情况下智能体大约读 300 个 token（摘要），有一个场景失败时大约读 3,000 个（摘要、该步的文字清单和一张元素裁图）。
+
+Claude Code 插件附带一个技能，涵盖接入、编写场景、运行和解读结果，因此 Claude 能把一个没有任何测试的 Mac 应用带到拥有一套后台测试套件。
+
+## 并行运行多套测试
+
+每个场景开始前会在 `~/Library/Caches/wispstage/` 中取锁，锁被占用时就等待。
+
+| 运行方式 | 可同时运行的 |
+|---|---|
+| 前台模式 | Mac 上不能再运行别的 |
+| 后台模式 | 测试应用包标识不同的所有后台运行 |
+| 后台模式，包标识相同 | 一次一个场景；各次运行轮流进行 |
+
+给每个 git worktree 里的测试宿主配一个独立的包标识，各 worktree 的测试套件就能并排运行，各自拥有自己的沙盒容器和偏好设置。
+
+## 命令
+
+<details>
+<summary>全部命令</summary>
 
 | 命令 | 作用 |
 |---|---|
-| `wispstage init [--app-name 名] [--executable 路径] [--dir 目录]` | 在当前项目生成场景包（默认放在 `E2E/`，含一个冒烟场景）与项目根的 `.wispstage.json`；已有的文件不覆盖 |
-| `wispstage list [过滤…]` | 列出场景名，不启动应用 |
-| `wispstage run [--mode foreground\|background] [--shots=key\|all\|none] [过滤…]` | 跑场景；过滤写场景全名或前缀，如 `smoke.`。`--shots` 管自动的整窗截图：`key`（默认）截首步、末步与失败步，`all` 每步截，`none` 自动截图与失败截图都不截。场景里显式写的 `t.shot`、`t.shot(id:)` 不受 `--shots` 影响，照截。本次运行保留下来的截图，不论自动截的还是显式截的，都与基准比较；失败截图不比较 |
-| `wispstage baseline accept <运行目录> [场景过滤…]` | 把某次运行的截图存为基准，之后每轮自动逐像素比较 |
-| `wispstage windows (--pid N \| --bundle-id ID)` | 列一个已在运行的应用在屏幕上的窗口 |
-| `wispstage listing (--pid N \| --bundle-id ID) [--out 文件]` | 导出它的界面清单，并列出看得见却没有辅助功能标识的元素 |
-| `wispstage shot (--pid N \| --bundle-id ID) [--window 窗口号] [--id 标识] [--out 目录]` | 截它的窗口，或按标识裁出一个元素 |
-| `wispstage summary <运行目录>` | 按 `results.json` 重新生成 `summary.txt` |
+| `wispstage init [--app-name N] [--executable PATH] [--dir DIR]` | 搭建一个场景包（默认 `E2E/`），内含一个冒烟场景，并在项目根目录生成 `.wispstage.json`；从不覆盖已有文件 |
+| `wispstage list [filter…]` | 构建场景包并列出场景名称，不启动应用 |
+| `wispstage run [--mode foreground\|background] [--shots=key\|all\|none] [filter…]` | 运行名称等于某个过滤条件或以它开头的场景（`smoke.`、`settings.save`）；不给过滤条件则全部运行。模式也可以来自 `WISPSTAGE_MODE` |
+| `wispstage baseline accept <run-dir> [filter…]` | 把一次运行的截图存为基准图 |
+| `wispstage summary <run-dir>` | 根据 `results.json` 重写 `summary.txt` |
+| `wispstage windows (--pid N \| --bundle-id ID)` | 列出某个运行中应用在屏幕上的窗口 |
+| `wispstage listing (--pid N \| --bundle-id ID) [--out FILE]` | 把运行中应用的界面写成文字，并列出缺少标识的可见元素 |
+| `wispstage shot (--pid N \| --bundle-id ID) [--window ID] [--id IDENT] [--out DIR]` | 给运行中应用的每个窗口截图；用 `--window` 只截一个窗口，用 `--id` 只截一个元素 |
 
-`list`、`run`、`baseline` 从当前目录往上找 `.wispstage.json`，再交给其中写明的场景包执行；`scenarioPackage` 是相对这个文件所在目录的路径。格式是：
+`list`、`run` 和 `baseline` 会在当前目录或其上级目录中查找 `.wispstage.json`，并把参数传给它指定的场景包：
 
 ```json
 {"scenarioPackage": "E2E", "product": "myapp-e2e"}
 ```
 
-## 运行结果
+</details>
 
-每轮运行在场景包配置的产物目录（默认 `<项目根>/build/e2e-runs/<时间戳>/`）下留下：
+## 局限
 
-- `summary.txt`：通过、失败、跳过的计数，失败场景的失败步骤与原因，只列不判的改进清单（缺标识、点按区域太小、没对齐、对比度、局部遮挡），以及与基准截图的视觉差异和高亮图路径（有差异也不判失败）。
-- `results.json`：同样的内容，供程序读取。
-- 每个场景一个目录：逐步日志 `steps.log`，按 `--shots` 截的整窗图与文字版界面清单，局部截图，失败时的整棵辅助功能树，应用的事件与标准错误输出。
-
-判失败的检查包括：应用崩溃或卡死、未替换的占位文字、英文单复数错误、文字压叠、文字越出窗口、文字被截断、按键没有被接收而发出提示音（要接到第 2 级，否则日志注明提示音没有来源、不判失败）；后台模式下另查被测窗口有没有抢走键盘或前台。
+- Wispstage 只能看到应用暴露给辅助功能的内容。游戏、画布图表这类自绘内容可以与基准图比对，但无法逐项检查；辅助功能树里缺失的浮层，遮挡检查也看不到。
+- 后台模式无法重现依赖活动窗口的行为：焦点环和活动窗口配色、只起激活作用的首次点击、拼音等输入法的组字、真实悬停、全局快捷键。这些场景请用前台模式运行。
+- 运行需要屏幕处于解锁状态，并与你手头的其他工作共享 CPU 和内存。
+- 如果标签被截掉的部分不到文字的十分之一，且没有显示省略号，截断检查会漏掉。
+- 复数检查只查 "1" 后面跟复数名词的情况，而且只针对英文界面。
+- AppKit 在「此按键无响应者」路径之外播放的提示音检测不到。
+- 把窗口藏在墙纸之下、在应用内部投递按键事件，依赖的是 macOS 窗口服务器和 AppKit 当前的行为；macOS 更新可能改变这些行为。
+- 仅支持 macOS。
 
 ## 开发
 
 ```bash
-swift test --package-path <仓库目录>
+swift test
 ```
 
-插件的 Claude 技能在 `skills/wispstage/`，插件清单在 `.claude-plugin/`。CI 在 GitHub 的 macOS 机器上跑同样的构建和测试（`.github/workflows/ci.yml`）；需要图形会话或屏幕录制权限的测试，在机器没有这些条件时自动跳过。
+需要图形会话或屏幕录制权限的测试，在不具备这些条件的机器上会自行跳过。`.github/workflows/ci.yml` 在 GitHub 的 macOS runner 上构建并测试。技能位于 `skills/wispstage/`，插件清单位于 `.claude-plugin/`。
 
 ## 许可证
 
-MIT，见 [LICENSE](LICENSE)。
+MIT。见 [LICENSE](LICENSE)。

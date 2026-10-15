@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1540 910" width="1540" height="910" font-family="-apple-system, 'PingFang SC', 'Helvetica Neue', Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#444"/></marker></defs>
+<rect width="1540" height="910" fill="#ffffff"/>
+<rect x="380" y="140" width="460" height="646" rx="6" fill="#f7f7f7" stroke="#8a8a8a"/>
+<path d="M380 170H840" stroke="#8a8a8a"/>
+<text x="390.0" y="159.7" font-size="13" text-anchor="start" fill="#222" font-weight="700">驱动进程（你的场景包 + WispstageKit）</text>
+<rect x="1080" y="296" width="420" height="436" rx="6" fill="#f7f7f7" stroke="#8a8a8a"/>
+<path d="M1080 326H1500" stroke="#8a8a8a"/>
+<text x="1090.0" y="315.7" font-size="13" text-anchor="start" fill="#222" font-weight="700">测试宿主进程（第 2 级：你项目里单独的 target）</text>
+<rect x="400" y="296" width="420" height="410" rx="6" fill="#ffffff" stroke="#6c8ebf" stroke-width="1.4"/>
+<path d="M400 324H820" stroke="#6c8ebf"/>
+<text x="410.0" y="314.5" font-size="12.5" text-anchor="start" fill="#222" font-weight="700">场景的每一步</text>
+<polyline points="280,227 420,227" fill="none" stroke="#444" stroke-width="1.6" marker-end="url(#a)"/>
+<polyline points="165,262 165,540" fill="none" stroke="#444" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a)"/>
+<polyline points="770,190 770,110" fill="none" stroke="#444" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#a)"/>
+<polyline points="610,264 610,296" fill="none" stroke="#444" stroke-width="1.6" marker-end="url(#a)"/>
+<polyline points="610,378 610,400" fill="none" stroke="#444" stroke-width="1.6" marker-end="url(#a)"/>
+<polyline points="610,438 610,460" fill="none" stroke="#444" stroke-width="1.6" marker-end="url(#a)"/>
+<polyline points="610,498 610,520" fill="none" stroke="#444" stroke-width="1.6" marker-end="url(#a)"/>
+<polyline points="420,605 290,605" fill="none" stroke="#444" stroke-width="1.6" marker-end="url(#a)"/>
+<polyline points="420,746 165,746 165,670" fill="none" stroke="#444" stroke-width="1.6" marker-end="url(#a)"/>
+<polyline points="1290,638 1290,666" fill="none" stroke="#444" stroke-width="1.6" marker-end="url(#a)"/>
+<polyline points="820,366 1100,366" fill="none" stroke="#444" stroke-width="1.6" marker-end="url(#a)"/>
+<polyline points="820,414 1100,414" fill="none" stroke="#444" stroke-width="1.6" marker-start="url(#a)" marker-end="url(#a)"/>
+<polyline points="820,462 1100,462" fill="none" stroke="#444" stroke-width="1.6" stroke-dasharray="6 4" marker-start="url(#a)" marker-end="url(#a)"/>
+<polyline points="820,536 1100,536" fill="none" stroke="#444" stroke-width="1.6" marker-end="url(#a)"/>
+<polyline points="820,600 1100,600" fill="none" stroke="#444" stroke-width="1.6" marker-start="url(#a)" marker-end="url(#a)"/>
+<polyline points="1100,690 820,690" fill="none" stroke="#444" stroke-width="1.6" marker-end="url(#a)"/>
+<rect x="360" y="30" width="500" height="80" rx="9" fill="#e1d5e7" stroke="#9673a6" stroke-width="1.4"/>
+<text x="610.0" y="58.5" font-size="12.5" text-anchor="middle" fill="#1a1a1a" xml:space="preserve"><tspan font-weight="700">~/Library/Caches/wispstage/</tspan><tspan> 锁文件，所有检出目录共用</tspan></text>
+<text x="610.0" y="74.5" font-size="12.5" text-anchor="middle" fill="#1a1a1a">后台：每个包标识一把（独占）+ 全局一把（共享）</text>
+<text x="610.0" y="90.5" font-size="12.5" text-anchor="middle" fill="#1a1a1a">前台：全局一把（独占）</text>
+<rect x="50" y="192" width="230" height="70" rx="9" fill="#1e3a5f" stroke="#1e3a5f" stroke-width="1.4"/>
+<text x="165.0" y="223.5" font-size="12.5" text-anchor="middle" fill="#ffffff" font-weight="700">你或你的编码智能体</text>
+<text x="165.0" y="239.5" font-size="12.5" text-anchor="middle" fill="#ffffff">wispstage run [过滤条件]</text>
+<path d="M40 540H276L290 554V670H40Z" fill="#d5e8d4" stroke="#82b366" stroke-width="1.4"/>
+<path d="M276 540V554H290" fill="none" stroke="#82b366" stroke-width="1.4"/>
+<text x="165.0" y="569.5" font-size="12.5" text-anchor="middle" fill="#1a1a1a" font-weight="700">build/e2e-runs/&lt;时间&gt;/</text>
+<text x="165.0" y="585.5" font-size="12.5" text-anchor="middle" fill="#1a1a1a">summary.txt、results.json</text>
+<text x="165.0" y="601.5" font-size="12.5" text-anchor="middle" fill="#1a1a1a">每个场景：steps.log、截图、</text>
+<text x="165.0" y="617.5" font-size="12.5" text-anchor="middle" fill="#1a1a1a">元素裁图、界面文字清单、</text>
+<text x="165.0" y="633.5" font-size="12.5" text-anchor="middle" fill="#1a1a1a">基准差异图、events.jsonl、</text>
+<text x="165.0" y="649.5" font-size="12.5" text-anchor="middle" fill="#1a1a1a">app-stderr.log</text>
+<rect x="420" y="190" width="380" height="74" rx="9" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.4"/>
+<text x="610.0" y="215.5" font-size="12.5" text-anchor="middle" fill="#1a1a1a" font-weight="700">执行器</text>
+<text x="610.0" y="231.5" font-size="12.5" text-anchor="middle" fill="#1a1a1a">每个场景：先取锁，再运行，</text>
+<text x="610.0" y="247.5" font-size="12.5" text-anchor="middle" fill="#1a1a1a">跑完把截图与基准图比对</text>
+<rect x="420" y="340" width="380" height="38" rx="9" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.4"/>
+<text x="610.0" y="363.5" font-size="12.5" text-anchor="middle" fill="#1a1a1a">1  动作：启动、点击、输入、按键、发命令</text>
+<rect x="420" y="400" width="380" height="38" rx="9" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.4"/>
+<text x="610.0" y="423.5" font-size="12.5" text-anchor="middle" fill="#1a1a1a">2  等界面稳定</text>
+<rect x="420" y="460" width="380" height="38" rx="9" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.4"/>
+<text x="610.0" y="483.5" font-size="12.5" text-anchor="middle" fill="#1a1a1a">3  读界面树，截取窗口</text>
+<rect x="420" y="520" width="380" height="170" rx="9" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.4"/>
+<text x="432.0" y="561.5" font-size="12.5" text-anchor="start" fill="#1a1a1a" font-weight="700">4  每个窗口上的检查</text>
+<text x="432.0" y="577.5" font-size="12.5" text-anchor="start" fill="#1a1a1a" xml:space="preserve"><tspan font-weight="700">判失败：</tspan><tspan>崩溃或无响应、文字截断、</tspan></text>
+<text x="432.0" y="593.5" font-size="12.5" text-anchor="start" fill="#1a1a1a">文字压叠或越出窗口、占位符未替换、</text>
+<text x="432.0" y="609.5" font-size="12.5" text-anchor="start" fill="#1a1a1a">单复数错误、提示音、应用抢键盘焦点</text>
+<text x="432.0" y="625.5" font-size="12.5" text-anchor="start" fill="#1a1a1a">或来到前台</text>
+<text x="432.0" y="641.5" font-size="12.5" text-anchor="start" fill="#1a1a1a" xml:space="preserve"><tspan font-weight="700">只列出：</tspan><tspan>对比度低、点击目标过小、</tspan></text>
+<text x="432.0" y="657.5" font-size="12.5" text-anchor="start" fill="#1a1a1a">未对齐、缺无障碍标识、文字被遮挡</text>
+<rect x="420" y="726" width="380" height="40" rx="9" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.4"/>
+<text x="610.0" y="750.5" font-size="12.5" text-anchor="middle" fill="#1a1a1a">最后一个场景跑完：写 summary.txt 和 results.json</text>
+<rect x="1100" y="340" width="380" height="140" rx="9" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.4"/>
+<text x="1290.0" y="406.5" font-size="12.5" text-anchor="middle" fill="#1a1a1a" font-weight="700">你的应用代码</text>
+<text x="1290.0" y="422.5" font-size="12.5" text-anchor="middle" fill="#1a1a1a">与正式发布的应用同一份代码，不做修改</text>
+<rect x="1100" y="502" width="380" height="136" rx="9" fill="#e1d5e7" stroke="#9673a6" stroke-width="1.4"/>
+<text x="1112.0" y="526.5" font-size="12.5" text-anchor="start" fill="#1a1a1a" font-weight="700">Wispstage 舞台库，由 Wispstage.install() 启动</text>
+<text x="1112.0" y="542.5" font-size="12.5" text-anchor="start" fill="#1a1a1a">把窗口压在墙纸之下</text>
+<text x="1112.0" y="558.5" font-size="12.5" text-anchor="start" fill="#1a1a1a">不让应用激活、不让窗口拿键盘焦点</text>
+<text x="1112.0" y="574.5" font-size="12.5" text-anchor="start" fill="#1a1a1a">把按键事件交给 key 窗口</text>
+<text x="1112.0" y="590.5" font-size="12.5" text-anchor="start" fill="#1a1a1a">在进程内执行点击、拖拽、悬停、滚动</text>
+<text x="1112.0" y="606.5" font-size="12.5" text-anchor="start" fill="#1a1a1a">吞掉无人处理按键的提示音并上报</text>
+<text x="1112.0" y="622.5" font-size="12.5" text-anchor="start" fill="#1a1a1a">不让你真实的点击传到应用的全局监视器</text>
+<rect x="1100" y="666" width="380" height="48" rx="9" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.4"/>
+<text x="1290.0" y="686.5" font-size="12.5" text-anchor="middle" fill="#1a1a1a" font-weight="700">应用窗口</text>
+<text x="1290.0" y="702.5" font-size="12.5" text-anchor="middle" fill="#1a1a1a">压在墙纸之下，从不成为 key 窗口</text>
+<rect x="1100" y="742" width="380" height="46" fill="#ffffcc" stroke="#cccc00"/>
+<text x="1290.0" y="761.1" font-size="11.5" text-anchor="middle" fill="#1a1a1a">正式发布的应用是另一个 target，</text>
+<text x="1290.0" y="777.1" font-size="11.5" text-anchor="middle" fill="#1a1a1a">不链接任何 Wispstage 代码。</text>
+<rect x="40" y="816" width="1460" height="64" rx="9" fill="#ffe6cc" stroke="#d79b00" stroke-width="1.4"/>
+<text x="770.0" y="844.5" font-size="12.5" text-anchor="middle" fill="#1a1a1a" xml:space="preserve"><tspan font-weight="700">前台模式（第 0、1 级，不需要测试宿主）：</tspan><tspan>应用来到前台，点击和按键是真实的系统事件，会移动你的光标。辅助功能、截图和检查的做法不变。</tspan></text>
+<text x="770.0" y="860.5" font-size="12.5" text-anchor="middle" fill="#1a1a1a">若链接了舞台库，它只上报事件。前台运行独占全局锁。</text>
+<text x="335.0" y="221.0" font-size="11.5" text-anchor="middle" fill="#222" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">swift run</text>
+<text x="175.0" y="405.0" font-size="11.5" text-anchor="start" fill="#222" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">先读 summary.txt</text>
+<text x="778.0" y="130.0" font-size="11.5" text-anchor="start" fill="#222" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">文件锁（flock）</text>
+<text x="335.0" y="599.0" font-size="11.5" text-anchor="middle" fill="#222" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">每步的文件</text>
+<text x="335.0" y="740.0" font-size="11.5" text-anchor="middle" fill="#222" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">写入</text>
+<text x="1298.0" y="656.0" font-size="11.5" text-anchor="start" fill="#222" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">压到墙纸下</text>
+<text x="960.0" y="360.0" font-size="11.5" text-anchor="middle" fill="#222" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">启动它，设 WISPSTAGE_STAGE=1</text>
+<text x="960.0" y="394.0" font-size="11.5" text-anchor="middle" fill="#222" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">辅助功能：读界面树、</text>
+<text x="960.0" y="408.0" font-size="11.5" text-anchor="middle" fill="#222" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">按按钮、设值、选菜单项</text>
+<text x="960.0" y="442.0" font-size="11.5" text-anchor="middle" fill="#222" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">可选的命令通道：</text>
+<text x="960.0" y="456.0" font-size="11.5" text-anchor="middle" fill="#222" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">stdin 发命令，stdout 回事件和应答</text>
+<text x="960.0" y="516.0" font-size="11.5" text-anchor="middle" fill="#222" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">按键事件直接发给应用进程</text>
+<text x="960.0" y="530.0" font-size="11.5" text-anchor="middle" fill="#222" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">（postToPid）</text>
+<text x="960.0" y="580.0" font-size="11.5" text-anchor="middle" fill="#222" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">Unix 套接字：送去指针命令，</text>
+<text x="960.0" y="594.0" font-size="11.5" text-anchor="middle" fill="#222" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">传回提示音和 key 窗口事件</text>
+<text x="960.0" y="670.0" font-size="11.5" text-anchor="middle" fill="#222" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">窗口截图</text>
+<text x="960.0" y="684.0" font-size="11.5" text-anchor="middle" fill="#222" stroke="#ffffff" stroke-width="4" paint-order="stroke" stroke-linejoin="round">（screencapture -l）</text>
+</svg>
