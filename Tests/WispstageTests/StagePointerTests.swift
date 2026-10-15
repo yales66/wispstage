@@ -76,6 +76,8 @@ final class MouseCountingView: NSView {
     override func mouseExited(with e: NSEvent) { exited += 1 }
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
+        // AppKit calls this on its own whenever it re-evaluates tracking areas; keep the one area while the bounds are unchanged, so one hover is one enter
+        if trackingAreas.count == 1, trackingAreas[0].rect == bounds { return }
         trackingAreas.forEach(removeTrackingArea)
         addTrackingArea(NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeAlways], owner: self))
     }
