@@ -16,7 +16,7 @@ and every step is checked for broken UI without you writing an assertion.
 
 </div>
 
-Wispstage drives SwiftUI and AppKit apps through Accessibility and synthesized input. You write scenarios in Swift; Wispstage runs them on your own Mac, checks the UI after every step and writes a plain-text report; when everything passes, a coding agent reads it in a few hundred tokens.
+Wispstage drives SwiftUI and AppKit apps through Accessibility and synthesized input. You write scenarios in Swift; Wispstage runs them on your own Mac, checks the UI after every step and writes a plain-text report. When everything passes, a coding agent reads that report in about 300 tokens, more than 99% less than looking at a screenshot after every step.
 
 - In background mode the app's windows stay beneath the wallpaper and never take focus. Clicks, drags, hovers and scrolls are carried out inside the app, so the real cursor never moves. No virtual machine is involved. Background mode needs a small test-host target in your project; without it, runs use foreground mode and take over the screen.
 - After every step, crashes, hangs, truncated or overlapping text, text outside its window, unfilled placeholders and, with a test host, beeps from unhandled keys fail the step on their own. Low contrast, tiny click targets and missing accessibility identifiers are listed for review.
@@ -315,7 +315,13 @@ An agent that writes and runs your tests pays for everything it reads. Wispstage
 - Each step's UI is also saved as text (`.ax.txt`), with exact identifiers and strings instead of a picture to read them from.
 - When the agent does need to see something, it can open a crop of one element instead of the whole window.
 
-A full-window screenshot of a Retina window costs an agent 2,000 to 4,600 tokens to read, depending on how the model scales images, so looking at one after every step adds up fast. With Wispstage the agent reads about 300 tokens when everything passes (the summary), and about 3,000 when one scenario fails (the summary, that step's text listing and one element crop).
+| What the agent reads | Screenshot every step | With Wispstage | Reduction |
+|---|---|---|---|
+| A 19-step run that passes | 38,000 to 88,000 tokens | About 300 tokens: `summary.txt` | More than 99% |
+| A 19-step run where one scenario fails | 38,000 to 88,000 tokens | About 3,000 tokens: the summary, the failing step's text listing and one element crop | 92% to 97% |
+| One element it needs to see | 2,000 to 4,600 tokens for the whole window | About 45 tokens for a label, 650 for a card | 68% to 99% |
+
+The figures are estimates from file sizes: a Retina window of 2400×1488 pixels, one token per 28×28 pixels of image, and 3 to 4 bytes of text per token. The ranges come from models that scale a large screenshot down to 1,568 pixels on its long side before reading it.
 
 The Claude Code plugin ships a skill that covers adoption, scenario writing, running and reading results, so Claude can take a Mac app from no tests to a background suite.
 
