@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Wrapper for the wispstage command. When the plugin is enabled, Claude Code adds the plugin's bin/ to the Bash PATH but does not set
+# CLAUDE_PLUGIN_ROOT, so this script finds the plugin root (which is the Swift package root) from its own path, resolving symlinks.
+# On first run, or when any source (Package.swift or a file under Sources/) is newer than the built binary, it builds the release
+# binary first, then execs it with WISPSTAGE_ROOT=<plugin root> in the environment (wispstage init uses it to make the generated
+# scenario package depend on this copy of WispstageKit).
+# The build cache lives in ${WISPSTAGE_CACHE:-~/Library/Caches/wispstage}/build-<short hash of the plugin root path>/, with build output in build.log there.
+set -euo pipefail
+
+src="$0"
+while [ -L "$src" ]; do
+  dir="$(cd -P "$(dirname "$src")" && pwd)"
+  src="$(readlink "$src")"
+  case "$src" in /*) ;; *) src="$dir/$src" ;; esac
+done
+root="$(cd -P "$(dirname "$src")/.." && pwd)"
+
+hash="$(printf '%s' "$root" | shasum -a 256 | cut -c1-12)"
+cache="${WISPSTAGE_CACHE:-$HOME/Library/Caches/wispstage}/build-$hash"
+bin="$cache/release/wispstage"
+log="$cache/build.log"
+
+stale=0
+if [ ! -x "$bin" ]; then
+  stale=1
+elif [ -n "$(find "$root/Package.swift" "$root/Sources" -type f -newer "$bin" -print -quit)" ]; then
+  stale=1
+fi
+
+if [ "$stale" = 1 ]; then
+  mkdir -p "$cache"
+  echo "wispstage: building the command (first run or sources changed), output in $log" >&2
+  if ! swift build -c release --product wispstage --package-path "$root" --scratch-path "$cache" >"$log" 2>&1; then
+    echo "wispstage: build failed, last 20 lines of $log:" >&2
+    tail -n 20 "$log" >&2
+    exit 1
+  fi
+  # When sources are unchanged, swift build does not relink and the binary's mtime stays old, so it would look stale next time; touch it to make it newer than the sources.
+  touch "$bin"
+fi
+
+export WISPSTAGE_ROOT="$root"
+exec "$bin" "$@"

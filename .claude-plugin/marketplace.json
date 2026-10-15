@@ -1,0 +1,16 @@
+{
+  "name": "wispstage",
+  "owner": {
+    "name": "Yaleson"
+  },
+  "metadata": {
+    "description": "Plugin marketplace for Wispstage: installs the wispstage plugin from this repository."
+  },
+  "plugins": [
+    {
+      "name": "wispstage",
+      "source": "./",
+      "description": "End-to-end tests for Mac apps: generic checks after every step, background runs, built for coding agents."
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: |
+          sw_vers
+          xcodebuild -version
+          swift --version
+
+      - name: Host capabilities
+        run: swift .github/scripts/host-capabilities.swift
+
+      - name: Plugin manifests
+        run: |
+          jq -e '.name and .version' .claude-plugin/plugin.json
+          jq -e '.plugins | length > 0' .claude-plugin/marketplace.json
+          bash -n bin/wispstage
+
+      - name: Build
+        run: swift build --build-tests
+
+      - name: Test
+        run: swift test --skip-build
