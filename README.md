@@ -16,7 +16,7 @@ for a fraction of the tokens a screenshot-driven agent spends. Your cursor and k
 
 <br>
 
-<img src="docs/wispstage-demo.gif" width="720" alt="A coding agent adds end-to-end tests to Wispboard, a SwiftUI kanban app. Wispstage runs the app beneath the desktop wallpaper, its built-in checks flag four failures, and the agent reads the plain-text summary, fixes the code and reruns until all ten scenarios pass. The summary costs 2,800 tokens against 133,000 for one screenshot per step.">
+<img src="docs/wispstage-demo.gif" width="720" alt="A coding agent adds end-to-end tests to Wispboard, a SwiftUI kanban app. Wispstage runs the app beneath the desktop wallpaper, its built-in checks mark four failures on the board, and the agent reads the plain-text summary of all five failing scenarios, fixes the code and reruns until all ten scenarios pass. The summary of the passing run costs about 2,800 tokens, against 133,000 for one screenshot per step.">
 
 </div>
 
@@ -24,7 +24,7 @@ Wispstage is a Swift package and a Claude Code plugin. You ask your agent for en
 
 The agent adds two things to your project: a scenario package, a small Swift package where the scenarios live, and, for background runs, a test host, a second app target built from your app's code that links Wispstage's stage library. In background mode the stage library keeps the app's windows beneath the desktop wallpaper; without a test host, runs use foreground mode and take over the screen.
 
-- Agents pay little to use it. A whole suite is one command, with no model call per click, and reading a passing 19-step run costs about 300 tokens, more than 99% less than looking at a screenshot after every step.
+- Agents pay little to use it. A whole suite is one command, with no model call per click, and reading the summary of a passing 37-step run costs about 2,800 tokens, 98% fewer than looking at a screenshot after every step.
 - It is light. There is no virtual machine and no UI test bundle, only the scenario package and test host the agent adds; the command-line tool is 2.1 MB, and the checks add 0.2 to 1 s per step.
 - It tests end to end, on your Mac. One `wispstage run` drives your actual app through Accessibility and synthesized input. Once the test host is in, runs happen in background mode: the app's windows stay beneath the wallpaper and never take focus, so you keep working while the suite runs.
 - It is built for SwiftUI. Identifiers come from `.accessibilityIdentifier`, the background-mode test host is a few lines around your `App`, and animations are compared with SwiftUI's own spring presets. AppKit apps work too.
@@ -118,13 +118,9 @@ Nobody wrote an assertion about truncation in `settings.save`. The check runs af
 
 Only when something fails does the agent open more: that step's UI as text (`.ax.txt`, with exact identifiers and strings), and if the text cannot answer, a crop of one element instead of the whole window. The skill teaches it that order.
 
-| What the agent reads | Screenshot every step | With Wispstage | Reduction |
-|---|---|---|---|
-| A 19-step run that passes | 38,000 to 88,000 tokens | About 300 tokens: `summary.txt` | More than 99% |
-| A 19-step run where one scenario fails | 38,000 to 88,000 tokens | About 3,000 tokens: the summary, the failing step's text listing and one element crop | 92% to 97% |
-| One element it needs to see | 2,000 to 4,600 tokens for the whole window | About 45 tokens for a label, 650 for a card | 68% to 99% |
+Measured with the Anthropic token counting API (Claude Opus 5.5) in October 2026 on a passing Wispboard run of 10 scenarios and 37 steps, `summary.txt` came to 2,786 tokens. One 2080×1320 window screenshot came to 3,603 tokens, so a screenshot after every step would have cost 133,311. Reading the summary instead takes 98% fewer tokens.
 
-The figures are estimates from file sizes: a Retina window of 2400×1488 pixels, one token per 28×28 pixels of image, and 3 to 4 bytes of text per token. The low end of each range assumes a model that scales a large screenshot down to 1,568 pixels on its long side before reading it; the high end assumes the full-size image.
+When the agent needs to see one element, a crop of it costs about 45 tokens for a label and 650 for a card, against 3,603 for that whole Wispboard window: 82% to 99% fewer. The crop figures are estimates at one token per 28×28 pixels of image.
 
 ## How it compares
 
