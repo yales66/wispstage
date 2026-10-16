@@ -14,6 +14,10 @@ for a fraction of the tokens a screenshot-driven agent spends. Your cursor and k
 
 [Quick start](#quick-start) · [Try the example](#try-it-on-the-example-app) · [What your agent reads](#what-your-agent-reads) · [What it checks](#what-it-checks) · [How it works](#how-it-works) · [Measuring animations](#measuring-animations) · [中文说明](README.zh-CN.md)
 
+<br>
+
+<img src="docs/wispstage-demo.gif" width="720" alt="A coding agent adds end-to-end tests to Wispboard, a SwiftUI kanban app. Wispstage runs the app beneath the desktop wallpaper, its built-in checks flag four failures, and the agent reads the plain-text summary, fixes the code and reruns until all ten scenarios pass. The summary costs 2,800 tokens against 133,000 for one screenshot per step.">
+
 </div>
 
 Wispstage is a Swift package and a Claude Code plugin. You ask your agent for end-to-end tests. The plugin's skill shows it how to add Wispstage to your project, write scenarios in Swift, run them against your real app and read a plain-text summary of what broke. Your part is granting two macOS permissions and reading what the agent reports. It was built while testing a production Mac app with coding agents.
