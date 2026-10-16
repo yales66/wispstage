@@ -183,6 +183,19 @@ final class MouseCountingView: NSView {
         XCTAssertEqual(view.exited, 1)
     }
 
+    /// The system cursor stays hidden after the user types until the mouse moves, and SwiftUI's hosting view ignores enter and move events while
+    /// it is hidden; a synthesized hover stands for a pointer that just moved, so onHover must still fire.
+    func test_hoverFiresSwiftUIOnHoverWhileSystemCursorIsHidden() throws {
+        let record = HoverRecord()
+        window.contentView?.addSubview(hoverRecordingHostingView(frame: NSRect(x: 60, y: 0, width: 60, height: 80), record: record))
+        pump()
+        let cursor = try XCTUnwrap(CursorHiddenDouble(hidden: true), "+[NSCursor _isHidden] not found")
+        addTeardownBlock { @MainActor in cursor.restore() }
+        _ = try run(.hover(window: window.windowNumber, at: CGPoint(x: 90, y: 40)))
+        XCTAssertEqual(record.values.first, true, "onHover got \(record.values)")
+        XCTAssertTrue(cursor.answer, "the stage must put back the double it found after the hover")
+    }
+
     func test_scrollReachesViewUnderPoint() throws {
         _ = try run(.scroll(window: window.windowNumber, at: CGPoint(x: 30, y: 40), dy: -120))
         XCTAssertEqual(view.scrolls.count, 1)
