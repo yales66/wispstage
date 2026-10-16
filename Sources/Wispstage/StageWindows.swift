@@ -18,11 +18,13 @@ enum StageWindows {
     private static var installed = false
     private static var seen: Set<ObjectIdentifier> = []
     nonisolated(unsafe) private static let requestedKey = UnsafeRawPointer(UnsafeMutableRawPointer.allocate(byteCount: 1, alignment: 1))
+    nonisolated(unsafe) private static let requestedBehaviorKey = UnsafeRawPointer(UnsafeMutableRawPointer.allocate(byteCount: 1, alignment: 1))
 
     static func install() {
         guard !installed else { return }
         installed = true
         exchange(#selector(setter: NSWindow.level), #selector(NSWindow.wispstage_setLevel(_:)))
+        exchange(#selector(setter: NSWindow.collectionBehavior), #selector(NSWindow.wispstage_setCollectionBehavior(_:)))
         exchange(#selector(NSWindow.orderFront(_:)), #selector(NSWindow.wispstage_orderFront(_:)))
         exchange(#selector(NSWindow.makeKeyAndOrderFront(_:)), #selector(NSWindow.wispstage_makeKeyAndOrderFront(_:)))
         exchange(#selector(NSWindow.orderFrontRegardless), #selector(NSWindow.wispstage_orderFrontRegardless))
@@ -76,6 +78,24 @@ enum StageWindows {
         (objc_getAssociatedObject(w, requestedKey) as? NSNumber).map { NSWindow.Level(rawValue: $0.intValue) } ?? w.level
     }
 
+    /// The collectionBehavior the app (or SwiftUI) last asked for; the window's own value until it sets one.
+    static func requestedCollectionBehavior(of w: NSWindow) -> NSWindow.CollectionBehavior {
+        (objc_getAssociatedObject(w, requestedBehaviorKey) as? NSNumber).map { NSWindow.CollectionBehavior(rawValue: $0.uintValue) } ?? w.collectionBehavior
+    }
+
+    fileprivate static func remember(_ behavior: NSWindow.CollectionBehavior, for w: NSWindow) {
+        objc_setAssociatedObject(w, requestedBehaviorKey, NSNumber(value: behavior.rawValue), .OBJC_ASSOCIATION_RETAIN)
+    }
+
+    /// The behaviour a pinned window gets: joins every Space, other apps' full-screen Spaces included.
+    /// SwiftUI sets `[.primary, .fullScreenNone]` in `WindowBehaviorBridge.willAppear`, and while `.fullScreenNone` is set `.fullScreenAuxiliary` has no effect:
+    /// the window stays off screen and Accessibility lists no windows whenever another app's full-screen Space is in front (measured 2026-10-16 in a full-screen Space).
+    /// The change only works before the window's first order-in; changing it once the window is on screen does not bring it into that Space.
+    /// `.moveToActiveSpace` together with `.canJoinAllSpaces` throws an exception.
+    static func pinnedBehavior(_ b: NSWindow.CollectionBehavior) -> NSWindow.CollectionBehavior {
+        b.subtracting([.moveToActiveSpace, .fullScreenNone]).union([.canJoinAllSpaces, .fullScreenAuxiliary])
+    }
+
     fileprivate static func remember(_ level: NSWindow.Level, for w: NSWindow) {
         objc_setAssociatedObject(w, requestedKey, NSNumber(value: level.rawValue), .OBJC_ASSOCIATION_RETAIN)
     }
@@ -87,7 +107,7 @@ enum StageWindows {
 
     fileprivate static var pins: Bool { Wispstage.isActive }
 
-    /// Pins to the minimum level, ignores the mouse, joins all Spaces; emits `stage.windowPinned` the first time each window is pinned.
+    /// Pins to the minimum level, ignores the mouse, joins all Spaces (other apps' full-screen Spaces included); emits `stage.windowPinned` the first time each window is pinned.
     static func pin(_ w: NSWindow) {
         guard installed, pins, !isMenuBarWindow(w) else { return }
         if w.level != Wispstage.level {
@@ -96,10 +116,11 @@ enum StageWindows {
             w.wispstage_setLevel(Wispstage.level)
         }
         if !w.ignoresMouseEvents { w.ignoresMouseEvents = true }
-        if !w.collectionBehavior.contains(.canJoinAllSpaces) {
-            // Setting canJoinAllSpaces and moveToActiveSpace together throws an exception
-            w.collectionBehavior.remove(.moveToActiveSpace)
-            w.collectionBehavior.insert(.canJoinAllSpaces)
+        // pin runs from the ordering methods, before the first order-in, which is when the behaviour still takes effect (see pinnedBehavior)
+        let behavior = pinnedBehavior(w.collectionBehavior)
+        if w.collectionBehavior != behavior {
+            if objc_getAssociatedObject(w, requestedBehaviorKey) == nil { remember(w.collectionBehavior, for: w) }
+            w.wispstage_setCollectionBehavior(behavior)
         }
         // A window not yet on screen has no window number; report it once it has one
         if w.windowNumber > 0, seen.insert(ObjectIdentifier(w)).inserted {
@@ -122,6 +143,12 @@ extension NSWindow {
         StageWindows.remember(level, for: self)
         let pinned = StageWindows.pins && !StageWindows.isMenuBarWindow(self)
         wispstage_setLevel(pinned ? Wispstage.level : level)
+    }
+
+    @objc func wispstage_setCollectionBehavior(_ behavior: NSWindow.CollectionBehavior) {
+        StageWindows.remember(behavior, for: self)
+        let pinned = StageWindows.pins && !StageWindows.isMenuBarWindow(self)
+        wispstage_setCollectionBehavior(pinned ? StageWindows.pinnedBehavior(behavior) : behavior)
     }
 
     @objc func wispstage_orderFront(_ sender: Any?) {

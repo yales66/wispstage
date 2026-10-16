@@ -133,6 +133,27 @@ final class Target: NSObject {
         XCTAssert(Wispstage.requestedLevel(of: plain) == .normal)
     }
 
+    /// SwiftUI sets [.primary, .fullScreenNone] on a WindowGroup window before it appears; while fullScreenNone is set, fullScreenAuxiliary has no effect and
+    /// the window stays off screen whenever another app's full-screen Space is in front. The stage rewrites the behaviour before the first order-in and on every later set.
+    func test_pinnedWindowJoinsFullScreenSpacesAndSetterRewriteHolds() {
+        let swiftUI: NSWindow.CollectionBehavior = [.primary, .fullScreenNone]
+        let w = Fixture.window()
+        w.collectionBehavior = swiftUI
+        w.orderFront(nil)
+        defer { w.orderOut(nil) }
+        func assertJoinsEverySpace(_ line: UInt = #line) {
+            XCTAssert(w.collectionBehavior.isSuperset(of: [.canJoinAllSpaces, .fullScreenAuxiliary]), line: line)
+            XCTAssert(!w.collectionBehavior.contains(.fullScreenNone), line: line)
+            XCTAssert(!w.collectionBehavior.contains(.moveToActiveSpace), line: line)
+        }
+        assertJoinsEverySpace()
+        XCTAssert(StageWindows.requestedCollectionBehavior(of: w) == swiftUI)
+        // A later reset while the window is on screen is rewritten as it is set, without waiting for the pin timer
+        w.collectionBehavior = [.primary, .fullScreenNone, .moveToActiveSpace]
+        assertJoinsEverySpace()
+        XCTAssert(StageWindows.requestedCollectionBehavior(of: w) == [.primary, .fullScreenNone, .moveToActiveSpace])
+    }
+
     // MARK: Point 2: intercepting key and activation
 
     func test_makeKeyIsRecordedAsKeyTargetInsteadOfTakingKeyboard() {

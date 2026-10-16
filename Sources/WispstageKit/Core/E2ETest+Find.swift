@@ -17,10 +17,15 @@ extension E2ETest {
         return WindowList.resolve(pid: p.pid, app: ax, known: knownWindows(), classifier: configuration.classifier)
     }
 
-    /// Waits for a window of some kind to appear.
+    /// Waits for a window of some kind to appear. On timeout, notes when the app's windows exist but none is on the current Space.
     @discardableResult
     public func window(_ kind: WindowKind, timeout: TimeInterval = Wait.defaultTimeout) throws -> AppWindow {
-        try Wait.value("a \(kind.rawValue) window", timeout: timeout) { try self.windows().first { $0.kind == kind } }
+        do {
+            return try Wait.value("a \(kind.rawValue) window", timeout: timeout) { try self.windows().first { $0.kind == kind } }
+        } catch var f as E2EFailure {
+            if let p = app, let note = WindowList.offSpaceNote(WindowList.all(pid: p.pid)) { f.reason += note }
+            throw f
+        }
     }
 
     /// Waits for a window of some kind to disappear.
